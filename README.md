@@ -1,6 +1,6 @@
 # Libero eLife-style Content Adapter Prototype
 
-This project is an implementation of Libero search API
+This project is an implementation of Libero eLife-style Content Adapter.
 
 Contents:
  - [Dependencies](#dependencies)
@@ -21,6 +21,10 @@ found in the `Makefile` into your command line interface.
 * `make help` for a full list of commands.
 * `make start` builds and/or runs the site locally configured for development purposes.
 * `make stop` stops containers and cleans up any anonymous volumes.
+
+Once services are running, you can view what's happening in Airflow by visiting
+`http://localhost:8080` and localstack's S3 at `http://localhost:8081` in your
+browser.
 
 ## Getting help
 
