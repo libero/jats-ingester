@@ -1,0 +1,39 @@
+version: "3.7"
+
+services:
+  localstack-s3:
+    image: localstack/localstack:latest
+    container_name: localstack-s3
+    environment:
+      - SERVICES=s3:5002
+      - PORT_WEB_UI=8081
+      - DEFAULT_REGION=eu-west-2
+      - DATA_DIR=/tmp/localstack/data
+    ports:
+      - "5002:5002"
+      - "8081:8081"
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: airflow-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  app:
+    build:
+      dockerfile: Dockerfile
+      context: .
+      args:
+        - env=dev
+    volumes:
+      - ./airflow.cfg:/src/airflow/airflow.cfg
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
