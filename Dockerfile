@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV AIRFLOW_HOME=/src/airflow
 
-WORKDIR /src/app
+WORKDIR ${AIRFLOW_HOME}
 
 COPY ./requirements ./requirements
 
@@ -20,6 +20,7 @@ RUN pip install -U pip \
 
 ARG env
 RUN pip install --no-cache-dir -r ./requirements/${env}.txt \
+    && rm -rf ~/.cache/* \
     && rm -rf /tmp/*
 
 EXPOSE 8080
