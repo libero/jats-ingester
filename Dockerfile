@@ -15,6 +15,7 @@ RUN pip install -U pip \
     && pip install --no-cache-dir -r ./requirements/base.txt \
     && apt-get remove --purge --autoremove -yq build-essential \
     && rm -rf ~/.cache/* \
+    && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/*
 
 ARG env
