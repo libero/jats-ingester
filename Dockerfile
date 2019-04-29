@@ -1,7 +1,5 @@
-FROM python:3.7.3-slim
+FROM python:3.7.3-slim as base
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
 ENV AIRFLOW_HOME=/src/airflow
 
 WORKDIR ${AIRFLOW_HOME}
@@ -18,8 +16,11 @@ RUN pip install -U pip \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/*
 
-ARG env
-RUN pip install --no-cache-dir -r ./requirements/${env}.txt \
+FROM base as dev
+
+ENV PYTHONDONTWRITEBYTECODE=1
+
+RUN pip install --no-cache-dir -r ./requirements/dev.txt \
     && rm -rf ~/.cache/* \
     && rm -rf /tmp/*
 
