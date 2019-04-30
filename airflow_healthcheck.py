@@ -7,16 +7,12 @@ url = 'http://localhost:8080/health'
 
 response = urlopen(url)
 if response.status != 200:
-    sys.exit('Airflow webserver is unhealthy')
+    sys.exit(1)
 
 data = json.loads(response.read())
-database_status = data['metadatabase']['status']
-scheduler_status = data['scheduler']['status']
+if data['metadatabase']['status'] != HEALTHY:
+    sys.exit(1)
+if data['scheduler']['status'] != HEALTHY:
+    sys.exit(1)
 
-if database_status == HEALTHY and scheduler_status == HEALTHY:
-    sys.exit()
-
-if database_status != HEALTHY:
-    sys.exit('Airflow database connection is unhealthy')
-if scheduler_status != HEALTHY:
-    sys.exit('Airflow scheduler is unhealthy')
+sys.exit(0)
