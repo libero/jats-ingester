@@ -9,4 +9,4 @@ function finish {
 trap finish EXIT
 
 docker-compose up -d
-.scripts/docker/wait-healthy.sh elife-style-content-adapter-prototype_airflow_1
+.scripts/docker/wait-healthy.sh elifestylecontentadapterprototype_airflow_1
