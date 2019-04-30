@@ -22,7 +22,7 @@ services:
       timeout: 30s
       retries: 3
 
-  app:
+  airflow:
     build:
       target: dev
       context: .
@@ -32,3 +32,8 @@ services:
       - db
     environment:
       WAIT_HOSTS: db:5432
+    healthcheck:
+      test: ["CMD-SHELL", "python airflow_healthcheck.py"]
+      interval: 30s
+      timeout: 30s
+      retries: 3

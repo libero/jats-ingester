@@ -36,6 +36,8 @@ RUN pip install --no-cache-dir -r ./requirements/dev.txt \
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
 RUN chmod +x /wait
 
+COPY airflow_healthcheck.py .
+
 EXPOSE 8080
 
-CMD /wait && airflow initdb && airflow webserver -p 8080 && airflow scheduler
+CMD /wait && airflow initdb && /bin/sh -c "airflow scheduler -D &" && airflow webserver -p 8080
