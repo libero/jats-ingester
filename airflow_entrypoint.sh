@@ -2,7 +2,7 @@
 
 set -e
 
-# If arguments are not supplied then exit and supply explaination
+# If arguments are not supplied then exit and supply explanation
 if [ "$#" -lt 1 ]; then
     echo "Please add the command you would like to run with Airflow."
     exit 1
