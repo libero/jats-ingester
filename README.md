@@ -17,7 +17,7 @@ Contents:
 `docker-compose down` - to fully stop all running services
 
 Once services are running, you can view what's happening in services that expose
-a webinterface by navigating to the following in your web browser:
+a web interface by navigating to the following in your web browser:
  
 Airflow
  - `http://localhost:8080`
