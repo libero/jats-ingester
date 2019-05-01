@@ -22,12 +22,12 @@ services:
       timeout: 30s
       retries: 3
 
-  airflow:
+  airflow_initdb:
+    &airflow
     build:
       target: dev
       context: .
-    ports:
-      - 8080:8080
+    command: initdb
     depends_on:
       - db
     environment:
@@ -37,3 +37,13 @@ services:
       interval: 30s
       timeout: 30s
       retries: 3
+
+  airflow_webserver:
+    <<: *airflow
+    command: webserver -p 8080
+    ports:
+      - 8080:8080
+
+  airflow_scheduler:
+    <<: *airflow
+    command: scheduler

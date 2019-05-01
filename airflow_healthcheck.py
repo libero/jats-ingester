@@ -3,7 +3,7 @@ import sys
 from urllib.request import urlopen
 
 HEALTHY = 'healthy'
-url = 'http://localhost:8080/health'
+url = 'http://airflow_webserver:8080/health'
 
 response = urlopen(url)
 if response.status != 200:
