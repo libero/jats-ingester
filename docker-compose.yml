@@ -27,7 +27,7 @@ services:
     build:
       target: dev
       context: .
-    command: initdb
+    command: upgradedb
     depends_on:
       - db
     environment:
@@ -43,7 +43,17 @@ services:
       interval: 30s
       timeout: 30s
       retries: 3
+    volumes:
+      - ./dags:/airflow/dags
 
   airflow_scheduler:
     <<: *airflow
     command: scheduler
+
+  airflow_worker:
+    <<: *airflow
+    command: worker
+    ports:
+      - 8793:8793
+    environment:
+      C_FORCE_ROOT: "yes"
