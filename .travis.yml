@@ -1,0 +1,20 @@
+language: minimal
+
+services: docker
+
+env:
+    global:
+        # hyphen in project names are stripped away in Travis's CI old docker-compose version
+        - COMPOSE_PROJECT_NAME=elifestylecontentadapterprototype
+
+install:
+    - travis_retry docker-compose build
+
+script:
+    - .travis/smoke-test.sh
+
+if: |
+    branch = master OR \
+    branch =~ /^(?:[0-9]|[1-9][0-9]*)\.(?:[0-9]|[1-9][0-9]*)$/ OR \
+    tag IS present OR \
+    type = pull_request

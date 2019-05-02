@@ -1,0 +1,49 @@
+version: "3.4"
+
+services:
+  localstack-s3:
+    image: localstack/localstack:latest
+    environment:
+      - PORT_WEB_UI=8081
+      - DEFAULT_REGION=eu-west-2
+      - DATA_DIR=/tmp/localstack/data
+    ports:
+      - "8081:8081"
+
+  db:
+    image: postgres:11.2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: airflow-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  airflow_initdb:
+    &airflow
+    build:
+      target: dev
+      context: .
+    command: initdb
+    depends_on:
+      - db
+    environment:
+      WAIT_HOSTS: db:5432
+
+  airflow_webserver:
+    <<: *airflow
+    command: webserver -p 8080
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: ["CMD-SHELL", "python airflow_healthcheck.py"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  airflow_scheduler:
+    <<: *airflow
+    command: scheduler
