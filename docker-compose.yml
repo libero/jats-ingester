@@ -32,6 +32,8 @@ services:
       - db
     environment:
       WAIT_HOSTS: db:5432
+    volumes:
+      - ./dags:/airflow/dags
 
   airflow_webserver:
     <<: *airflow
@@ -43,8 +45,6 @@ services:
       interval: 30s
       timeout: 30s
       retries: 3
-    volumes:
-      - ./dags:/airflow/dags
 
   airflow_scheduler:
     <<: *airflow
