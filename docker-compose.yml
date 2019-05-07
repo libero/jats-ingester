@@ -53,7 +53,3 @@ services:
   airflow_worker:
     <<: *airflow
     command: worker
-    ports:
-      - 8793:8793
-    environment:
-      C_FORCE_ROOT: "yes"

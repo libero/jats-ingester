@@ -22,6 +22,7 @@ RUN pip install -U pip \
     && set -ex \
     && apt-get update -yq \
     && apt-get install -yq --no-install-recommends build-essential \
+    && useradd -s /bin/bash -d ${AIRFLOW_HOME} airflow \
     && pip install --no-cache-dir -r ./requirements.txt \
     && apt-get remove --purge --autoremove -yq build-essential \
     && rm -rf ~/.cache/* \
@@ -29,6 +30,8 @@ RUN pip install -U pip \
     && rm -rf /tmp/*
 
 COPY ./dags ${AIRFLOW__CORE__DAGS_FOLDER}
+
+RUN chown -R airflow: .
 
 FROM base as dev
 
@@ -42,4 +45,5 @@ RUN chmod +x /wait
 
 COPY airflow_healthcheck.py airflow_entrypoint.sh ./
 
+USER airflow
 ENTRYPOINT ["./airflow_entrypoint.sh"]
