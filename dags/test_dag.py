@@ -17,17 +17,20 @@ default_args = {
     'retry_delay': timedelta(seconds=10)
 }
 
-def print_something():
+
+def print_something(**kwargs):
     msg = 'Print something test message'
-    print(msg + ' in print')
+    print(msg)
+    request_body = kwargs['dag_run'].conf
+    print(request_body)
     return msg + ' in return'
 
 
-def log_something():
+def log_something(**kwargs):
     msg = 'Log something test message'
     logger = logging.getLogger()
     logger.info(msg + ' in log')
-    return msg + 'in return'
+    return msg + ' in return'
 
 
 with airflow.DAG('libero_test_dag',
@@ -39,10 +42,12 @@ with airflow.DAG('libero_test_dag',
                                            bash_command='echo "Hello World!"')
 
     print_this = python_operator.PythonOperator(task_id='print_this',
+                                                provide_context=True,
                                                 python_callable=print_something)
 
     log_that = python_operator.PythonOperator(task_id='log_that',
-                                                python_callable=log_something)
+                                              provide_context=True,
+                                              python_callable=log_something)
 
     # run tasks
     bash_this >> print_this >> log_that
