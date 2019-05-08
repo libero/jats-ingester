@@ -8,8 +8,9 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
-STATUS=`curl -s $1/api/experimental/test | jq -r '.status'`
+status=`curl -s $1/api/experimental/test | jq -r '.status'`
 
-if [ "${STATUS}" != "OK" ]; then
-    exit 1
+if [ "${status}" != "OK" ]; then
+    echo "Airflow status: ${status}"
+    exit 2
 fi
