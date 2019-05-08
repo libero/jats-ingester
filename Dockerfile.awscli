@@ -5,6 +5,6 @@ RUN chmod +x /wait
 
 RUN pip install -U awscli-local
 
-COPY ./scripts/create-s3-buckets.sh .
+COPY ./scripts/create-s3-buckets.sh ./elife-666-vor-r1.zip ./
 
 CMD ["./create-s3-buckets.sh"]

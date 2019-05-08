@@ -8,3 +8,4 @@ set -e
 
 awslocal s3 mb s3://unstable-elife-style-content-adapter-incoming
 awslocal s3 mb s3://unstable-elife-style-content-adapter-expanded
+awslocal s3 cp ./elife-666-vor-r1.zip s3://unstable-elife-style-content-adapter-incoming
