@@ -5,6 +5,6 @@ RUN chmod +x /wait
 
 RUN pip install -U awscli-local
 
-COPY create-s3-buckets.sh .
+COPY ./scripts/create-s3-buckets.sh .
 
 CMD ["./create-s3-buckets.sh"]
