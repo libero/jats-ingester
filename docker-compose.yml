@@ -1,7 +1,7 @@
 version: "3.4"
 
 services:
-  localstack-s3:
+  localstack:
     image: localstack/localstack:latest
     environment:
       - PORT_WEB_UI=8081
@@ -9,6 +9,16 @@ services:
       - DATA_DIR=/tmp/localstack/data
     ports:
       - "8081:8081"
+
+  awscli:
+    build:
+      context: .
+      dockerfile: Dockerfile.awscli
+    depends_on:
+      - localstack
+    environment:
+      WAIT_HOSTS: localstack:4572
+      LOCALSTACK_HOST: localstack
 
   db:
     image: postgres:11.2
