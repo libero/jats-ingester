@@ -10,3 +10,4 @@ trap finish EXIT
 
 docker-compose up -d
 .scripts/docker/wait-healthy.sh elifestylecontentadapterprototype_airflow_webserver_1 60
+./scripts/airflow-status-check.sh localhost:8080
