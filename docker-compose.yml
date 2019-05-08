@@ -41,7 +41,7 @@ services:
     ports:
       - 8080:8080
     healthcheck:
-      test: ["CMD-SHELL", "python airflow_healthcheck.py"]
+      test: ["CMD-SHELL", "python ./scripts/airflow_healthcheck.py"]
       interval: 30s
       timeout: 30s
       retries: 3

@@ -43,7 +43,7 @@ ENV AIRFLOW__CORE__EXPOSE_CONFIG=true
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
 RUN chmod +x /wait
 
-COPY airflow_healthcheck.py airflow_entrypoint.sh ./
+COPY scripts/ scripts/
 
 USER airflow
-ENTRYPOINT ["./airflow_entrypoint.sh"]
+ENTRYPOINT ["./scripts/airflow-entrypoint.sh"]
