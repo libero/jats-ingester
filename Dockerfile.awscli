@@ -1,9 +1,7 @@
-FROM python:3.7.3-alpine3.9
+FROM imione/awscli-local
 
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
 RUN chmod +x /wait
-
-RUN pip install -U awscli-local
 
 COPY ./scripts/create-s3-buckets.sh ./elife-666-vor-r1.zip ./
 
