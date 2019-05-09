@@ -15,6 +15,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.awscli
+    working_dir: /src/app
+    volumes:
+      - ./scripts/create-s3-buckets.sh:/src/app/create-s3-buckets.sh
+      - ./elife-666-vor-r1.zip:/src/app/elife-666-vor-r1.zip
+    command: ./create-s3-buckets.sh
     depends_on:
       - localstack
     environment:
