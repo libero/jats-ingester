@@ -60,10 +60,10 @@ def run_dag_for_each_file(**context):
                     conf=json.dumps({'file': file_name}),
                     execution_date=None,
                     replace_microseconds=False)
-    logger.info('%s triggered pipeline for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
+    logger.debug('triggered %s for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
 
 
-with DAG('process_trigger_dag',
+with DAG('trigger_process_zip_dag',
          default_args=default_args,
          schedule_interval=SCHEDULE_INTERVAL) as dag:
 

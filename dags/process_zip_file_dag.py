@@ -37,31 +37,34 @@ def extract_zipped_files_to_bucket(**context):
     dag_run = context['dag_run']
     conf = dag_run.conf or {}
     file_name = conf.get('file')
+    logger.debug('FILE PASSED= %s', file_name)
     if not file_name:
         raise ValueError('%s triggered without a file name passed to conf' % dag_run.dag_id)
-    logger.info('File passed: %s' % file_name)
 
     # temporary files are securely stored on disk and automatically deleted when closed
     with TemporaryFile() as temp_file:
         s3 = get_aws_connection('s3')
         # store downloaded file in temp file
         s3.download_fileobj(SOURCE_BUCKET, file_name, temp_file)
+        logger.debug('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
-        # assumes the zip file name is the same as the containing folder
-        # TODO: decide zip file structure
         folder_name = file_name.replace('.zip', '')
         xml_path = None
         for zipped_file_path in ZipFile(temp_file).namelist():
-            if zipped_file_path.startswith(folder_name):
+            # skip mac os archive files
+            if '__MACOSX' not in zipped_file_path:
                 with TemporaryFile() as inner_temp_file:
                     # store zipped file in temp file
                     inner_temp_file.write(ZipFile(temp_file).read(zipped_file_path))
                     inner_temp_file.seek(0)
+                    s3_key = '%s/%s' % (folder_name, zipped_file_path)
                     # upload stored zipped file preserving zip file structure
-                    s3.upload_fileobj(inner_temp_file, DESTINATION_BUCKET, zipped_file_path)
-                    logger.info('%s uploaded to %s' % (zipped_file_path, DESTINATION_BUCKET))
+                    s3.upload_fileobj(inner_temp_file, DESTINATION_BUCKET, s3_key)
+                    logger.info(
+                        '%s uploaded to %s/%s', zipped_file_path, DESTINATION_BUCKET, s3_key
+                    )
                     if zipped_file_path.endswith('.xml'):
-                        xml_path = zipped_file_path
+                        xml_path = s3_key
         return xml_path
 
 
@@ -69,9 +72,9 @@ def prepare_jats_xml_for_libero(**context):
     # get xml path passed from previous task
     previous_task = 'extract_zipped_files_to_bucket'
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
+    logger.debug('FILE PASSED= %s', xml_path)
     if xml_path is None:
         raise ValueError('path to xml document was not passed from task %s' % previous_task)
-    logger.info('File passed: %s' % xml_path)
 
     # temporary files are securely stored on disk and automatically deleted when closed
     with TemporaryFile() as temp_file:
