@@ -31,14 +31,15 @@ default_args = {
 }
 
 
-def identify_files_to_process():
+def identify_zip_files_to_process():
     """
-    Gets all zip file names from source bucket and all extracted 'directory'
-    names from the destination bucket, stored in separate sets. The expanded
-    keys are given the .zip extension so that the two sets can be compared and
-    because we only want to pass zip files to the processing pipeline.
+    Gets all zip file names from source bucket and all 'directory'
+    names of extracted zip files from the destination bucket, stored in separate
+    sets. Keys from the destination bucket are given the .zip extension so that
+    the two sets can be compared.
 
-    :return: set - a set of keys from incoming not in expanded
+    :return: set - a set of zip file names from the source bucket that are not
+    in the destination.
     """
     incoming = {key for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET, Delimiter='.zip')}
     expanded = {key.replace('/', '.zip') for key in
@@ -47,7 +48,7 @@ def identify_files_to_process():
 
 
 def run_dag_for_each_file(**context):
-    file_names = context['task_instance'].xcom_pull(task_ids='identify_files_to_process')
+    file_names = context['task_instance'].xcom_pull(task_ids='identify_zip_files_to_process')
     dag_to_trigger = 'process_zip_dag'
     for file_name in file_names:
         trigger_dag(dag_id=dag_to_trigger,
@@ -63,8 +64,8 @@ with DAG('process_trigger_dag',
          schedule_interval=SCHEDULE_INTERVAL) as dag:
 
     task_1 = python_operator.PythonOperator(
-        task_id='identify_files_to_process',
-        python_callable=identify_files_to_process
+        task_id='identify_zip_files_to_process',
+        python_callable=identify_zip_files_to_process
     )
 
     task_2 = python_operator.PythonOperator(
