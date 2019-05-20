@@ -2,6 +2,7 @@
 DAG poll s3 bucket and trigger dag to process new/updated zip files
 """
 import json
+import re
 from datetime import timedelta
 from uuid import uuid4
 
@@ -42,7 +43,7 @@ def identify_zip_files_to_process():
     in the destination.
     """
     incoming = {key for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET, Delimiter='.zip')}
-    expanded = {key.replace('/', '.zip') for key in
+    expanded = {re.sub(r'/?$', '.zip', key) for key in
                 list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Delimiter='/')}
     return incoming.difference(expanded)
 
