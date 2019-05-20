@@ -2,6 +2,7 @@
 DAG poll s3 bucket and trigger dag to process new/updated zip files
 """
 import json
+import logging
 import re
 from datetime import timedelta
 from uuid import uuid4
@@ -19,6 +20,8 @@ SCHEDULE_INTERVAL = timedelta(minutes=1)
 START_DATE = timezone.utcnow().replace(second=0, microsecond=0) - SCHEDULE_INTERVAL
 SOURCE_BUCKET = configuration.conf.get('elife', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('elife', 'destination_bucket')
+
+logger = logging.getLogger(__name__)
 
 default_args = {
     'owner': 'libero',
@@ -57,7 +60,7 @@ def run_dag_for_each_file(**context):
                     conf=json.dumps({'file': file_name}),
                     execution_date=None,
                     replace_microseconds=False)
-    return '%s triggered pipeline for %s files: %s' % (dag_to_trigger, len(file_names), file_names)
+    logger.info('%s triggered pipeline for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
 
 
 with DAG('process_trigger_dag',
