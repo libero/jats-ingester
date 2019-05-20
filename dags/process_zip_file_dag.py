@@ -66,6 +66,7 @@ def extract_zipped_files_to_bucket(**context):
 
 
 def prepare_jats_xml_for_libero(**context):
+    # get xml path passed from previous task
     previous_task = 'extract_zipped_files_to_bucket'
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
     if xml_path is None:
