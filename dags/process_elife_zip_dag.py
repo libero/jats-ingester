@@ -14,9 +14,10 @@ from airflow.utils import timezone
 from lxml import etree
 
 from aws import get_aws_connection, list_bucket_keys_iter
+from task_helpers import get_previous_task_name
 
-SOURCE_BUCKET = configuration.conf.get('elife', 'source_bucket')
-DESTINATION_BUCKET = configuration.conf.get('elife', 'destination_bucket')
+SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
+DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ def extract_zipped_files_to_bucket(**context):
 
 def prepare_jats_xml_for_libero(**context):
     # get xml path passed from previous task
-    previous_task = 'extract_zipped_files_to_bucket'
+    previous_task = get_previous_task_name(**context)
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
     logger.debug('FILE PASSED= %s', xml_path)
     if xml_path is None:
@@ -87,21 +88,22 @@ def prepare_jats_xml_for_libero(**context):
 
 
 # schedule_interval is None because DAG is only run when triggered
-with DAG('process_zip_dag',
-         default_args=default_args,
-         schedule_interval=None) as dag:
+dag = DAG('process_elife_zip_dag',
+          default_args=default_args,
+          schedule_interval=None)
 
-    task_1 = python_operator.PythonOperator(
-        task_id='extract_zipped_files_to_bucket',
-        provide_context=True,
-        python_callable=extract_zipped_files_to_bucket
-    )
+task_1 = python_operator.PythonOperator(
+    task_id='extract_zipped_files_to_bucket',
+    provide_context=True,
+    python_callable=extract_zipped_files_to_bucket,
+    dag=dag
+)
 
-    task_2 = python_operator.PythonOperator(
-        task_id='prepare_jats_xml_for_libero',
-        provide_context=True,
-        python_callable=prepare_jats_xml_for_libero
-    )
+task_2 = python_operator.PythonOperator(
+    task_id='prepare_jats_xml_for_libero',
+    provide_context=True,
+    python_callable=prepare_jats_xml_for_libero,
+    dag=dag
+)
 
-    # run tasks
-    task_1 >> task_2
+task_1.set_downstream(task_2)

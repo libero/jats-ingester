@@ -12,14 +12,16 @@ from airflow.api.common.experimental.trigger_dag import trigger_dag
 from airflow.operators import python_operator
 from airflow.utils import timezone
 
+import process_elife_zip_dag
 from aws import list_bucket_keys_iter
+from task_helpers import get_return_value_from_previous_task
 
 SCHEDULE_INTERVAL = timedelta(minutes=1)
 # formula to start this DAG at server start up.
 # More info at https://gtoonstra.github.io/etl-with-airflow/gotchas.html
 START_DATE = timezone.utcnow().replace(second=0, microsecond=0) - SCHEDULE_INTERVAL
-SOURCE_BUCKET = configuration.conf.get('elife', 'source_bucket')
-DESTINATION_BUCKET = configuration.conf.get('elife', 'destination_bucket')
+SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
+DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ default_args = {
 }
 
 
-def identify_zip_files_to_process():
+def get_zip_files_to_process():
     """
     Gets all zip file names from source bucket and all 'directory'
     names of extracted zip files from the destination bucket, stored in separate
@@ -46,14 +48,14 @@ def identify_zip_files_to_process():
     in the destination.
     """
     incoming = {key for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET, Delimiter='.zip')}
-    expanded = {re.sub(r'/?$', '.zip', key) for key in
+    expanded = {re.sub(r'/$', '.zip', key) for key in
                 list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Delimiter='/')}
     return incoming.difference(expanded)
 
 
 def run_dag_for_each_file(**context):
-    file_names = context['task_instance'].xcom_pull(task_ids='identify_zip_files_to_process')
-    dag_to_trigger = 'process_zip_dag'
+    file_names = get_return_value_from_previous_task(**context)
+    dag_to_trigger = process_elife_zip_dag.dag.dag_id
     for file_name in file_names:
         trigger_dag(dag_id=dag_to_trigger,
                     run_id='{}_{}'.format(file_name, uuid4()),
@@ -63,20 +65,21 @@ def run_dag_for_each_file(**context):
     logger.debug('triggered %s for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
 
 
-with DAG('trigger_process_zip_dag',
-         default_args=default_args,
-         schedule_interval=SCHEDULE_INTERVAL) as dag:
+dag = DAG('trigger_process_zip_dag',
+          default_args=default_args,
+          schedule_interval=SCHEDULE_INTERVAL)
 
-    task_1 = python_operator.PythonOperator(
-        task_id='identify_zip_files_to_process',
-        python_callable=identify_zip_files_to_process
-    )
+task_1 = python_operator.PythonOperator(
+    task_id='get_zip_files_to_process',
+    python_callable=get_zip_files_to_process,
+    dag=dag
+)
 
-    task_2 = python_operator.PythonOperator(
-        task_id='run_dag_for_each_file',
-        provide_context=True,
-        python_callable=run_dag_for_each_file
-    )
+task_2 = python_operator.PythonOperator(
+    task_id='run_dag_for_each_file',
+    provide_context=True,
+    python_callable=run_dag_for_each_file,
+    dag=dag
+)
 
-    # run tasks
-    task_1 >> task_2
+task_1.set_downstream(task_2)

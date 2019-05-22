@@ -1,0 +1,15 @@
+version: '3.4'
+
+services:
+  test:
+    image: elife-style-content-adapter-prototype_airflow_webserver
+    build:
+      context: .
+      target: dev
+    entrypoint: ""
+    volumes:
+      - ./tests/:/airflow/tests/
+      - ./dags:/airflow/dags/
+      - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/airflow.test.cfg:/airflow/airflow.cfg
+    command: /bin/sh -c "airflow initdb && pytest --disable-socket tests/"

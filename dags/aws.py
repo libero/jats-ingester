@@ -1,7 +1,7 @@
 import boto3
 from airflow import configuration
 
-ENDPOINT_URL = configuration.conf.get('elife', 'endpoint_url')
+ENDPOINT_URL = configuration.conf.get('libero', 'endpoint_url')
 
 
 def get_aws_connection(service: str):
