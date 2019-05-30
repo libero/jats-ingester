@@ -5,6 +5,7 @@ file for Libero content API and sends to the content store via a PUT request.
 import logging
 from datetime import timedelta
 from io import BytesIO
+from pathlib import Path
 from tempfile import TemporaryFile
 from zipfile import ZipFile
 
@@ -15,6 +16,8 @@ from lxml import etree
 
 from aws import get_aws_connection, list_bucket_keys_iter
 from task_helpers import get_previous_task_name
+
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}
 
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
@@ -39,8 +42,8 @@ def extract_zipped_files_to_bucket(**context):
     conf = dag_run.conf or {}
     file_name = conf.get('file')
     logger.debug('FILE PASSED= %s', file_name)
-    if not file_name:
-        raise ValueError('%s triggered without a file name passed to conf' % dag_run.dag_id)
+    message = '%s triggered without a file name passed to conf' % dag_run.dag_id
+    assert file_name, message
 
     # temporary files are securely stored on disk and automatically deleted when closed
     with TemporaryFile() as temp_file:
@@ -49,11 +52,17 @@ def extract_zipped_files_to_bucket(**context):
         s3.download_fileobj(SOURCE_BUCKET, file_name, temp_file)
         logger.debug('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
+        # only one .xml file allowed
+        # TODO: support supplementary xml files
+        xml_files = [fn for fn in ZipFile(temp_file).namelist() if fn.endswith('.xml')]
+        message = ('only 1 XML file supported. %s XML files found in %s: %s' %
+                  (len(xml_files), file_name, xml_files))
+        assert len(xml_files) == 1, message
+
         folder_name = file_name.replace('.zip', '')
         xml_path = None
         for zipped_file_path in ZipFile(temp_file).namelist():
-            # skip mac os archive files
-            if '__MACOSX' not in zipped_file_path:
+            if Path(zipped_file_path).suffix in ALLOWED_EXTENSIONS:
                 with TemporaryFile() as inner_temp_file:
                     # store zipped file in temp file
                     inner_temp_file.write(ZipFile(temp_file).read(zipped_file_path))
@@ -74,8 +83,8 @@ def prepare_jats_xml_for_libero(**context):
     previous_task = get_previous_task_name(**context)
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
     logger.debug('FILE PASSED= %s', xml_path)
-    if xml_path is None:
-        raise ValueError('path to xml document was not passed from task %s' % previous_task)
+    message = 'path to xml document was not passed from task %s' % previous_task
+    assert xml_path is not None, message
 
     # temporary files are securely stored on disk and automatically deleted when closed
     with TemporaryFile() as temp_file:
