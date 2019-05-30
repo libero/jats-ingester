@@ -1,5 +1,5 @@
 """
-DAG poll s3 bucket and trigger dag to process new/updated zip files
+DAG identify zip files to process from s3 bucket and trigger dag for each zip file
 """
 import json
 import logging
