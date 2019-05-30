@@ -1,14 +1,21 @@
+import socket
+
 import pytest
 from airflow.utils import timezone
 from airflow.utils.db import create_session
 from airflow.utils.state import State
-from pytest_socket import disable_socket
+from pytest_socket import disable_socket, SocketBlockedError
 
 from tests.factories import DAGFactory, PythonOperatorFactory
 
 
 def pytest_runtest_setup():
+
+    def block_lookup(*args, **kwargs):
+        raise SocketBlockedError
+
     disable_socket()
+    socket.getaddrinfo = block_lookup
 
 
 @pytest.fixture
