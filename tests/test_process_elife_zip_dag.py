@@ -18,36 +18,37 @@ def test_extract_archived_files_to_bucket(context, s3_client):
     assert result == 'elife-666-vor-r1/elife-666.xml'
 
 
-def test_extract_archived_files_to_bucket_raises_exception_if_file_name_not_passed(context):
-    # should raise an exception if dag_run.conf is None
-    dag_run = context['dag_run']
-    msg = '%s triggered without a file name passed to conf' % dag_run.dag_id
-    with pytest.raises(AssertionError) as error:
-        extract_archived_files_to_bucket(**context)
-        assert str(error.value) == msg
+@pytest.mark.parametrize('file_name, xml_files, conf, message', [
+    (
+        None,
+        [],
+        None,
+        '{dag_id} triggered without a file name passed to conf'
+    ),
+    (
+        'elife-666-vor-r1.zip',
+        ['test1.xml', 'test2.xml'],
+        {'file': 'elife-666-vor-r1.zip'},
+        'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
+    ),
+    (
+        'elife-666-vor-r1.zip',
+        [],
+        {'file': 'elife-666-vor-r1.zip'},
+        'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
+    ),
+])
+def test_extract_archived_files_to_bucket_raises_exception(
+        file_name, xml_files, conf, message, mocker, context, s3_client):
 
-
-def test_extract_archived_files_to_bucket_raises_exception_if_more_than_one_xml_in_zip(mocker, context, s3_client):
-    file_name = 'elife-666-vor-r1.zip'
-    xml_files = ['test1.xml', 'test2.xml']
-    context['dag_run'].conf = {'file': file_name}
-    namelist = mocker.patch('zipfile.ZipFile.namelist')
-    namelist.return_value = xml_files
-    msg = ('only 1 XML file supported. %s XML files found in %s: %s' %
-           (len(xml_files), file_name, xml_files))
-    with pytest.raises(AssertionError) as error:
-        extract_archived_files_to_bucket(**context)
-        assert str(error.value) == msg
-
-
-def test_extract_archived_files_to_bucket_raises_exception_if_no_xml_files_in_zip(mocker, context, s3_client):
-    file_name = 'elife-666-vor-r1.zip'
-    xml_files = []
-    context['dag_run'].conf = {'file': file_name}
-    namelist = mocker.patch('zipfile.ZipFile.namelist')
-    namelist.return_value = xml_files
-    msg = ('only 1 XML file supported. %s XML files found in %s: %s' %
-           (len(xml_files), file_name, xml_files))
+    context['dag_run'].conf = conf
+    mocker.patch('zipfile.ZipFile.namelist', return_value=xml_files)
+    msg = message.format(
+        dag_id=context['dag_run'].dag_id,
+        len_files=len(xml_files),
+        xml_files=xml_files,
+        file_name=file_name
+    )
     with pytest.raises(AssertionError) as error:
         extract_archived_files_to_bucket(**context)
         assert str(error.value) == msg
