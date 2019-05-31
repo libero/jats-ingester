@@ -5,19 +5,16 @@ from dags.trigger_dag import SOURCE_BUCKET, DESTINATION_BUCKET
 from tests import mocks
 
 
-@pytest.mark.parametrize('url', [None, 'http://test-url.com'])
-def test_get_aws_connection(url):
+@pytest.mark.parametrize('url, expected', [
+    (None, "https://s3.eu-west-2.amazonaws.com"),
+    ('http://test-url.com', 'http://test-url.com')
+])
+def test_get_aws_connection(url, expected):
     import dags.aws
     dags.aws.ENDPOINT_URL = url
-
     conn = get_aws_connection('s3')
-
-    # boto3 client should use the default address if an endpoint is not specified
-    if not url:
-        url = "https://s3.eu-west-2.amazonaws.com"
-
     assert conn._endpoint._endpoint_prefix == 's3'
-    assert conn._endpoint.host == url
+    assert conn._endpoint.host == expected
 
 
 @pytest.mark.parametrize('params, response, expected', [
