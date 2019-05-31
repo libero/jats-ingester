@@ -10,6 +10,16 @@ from tests.factories import DAGFactory, PythonOperatorFactory
 
 
 def pytest_runtest_setup():
+    """
+    This test suite uses pytest-socket which causes tests to fail immediately if
+    a call to socket.socket is made, or in other words, tries to access the
+    internet. However, the boto library tries to resolve addresses by calling
+    socket.getaddrinfo which will make blocking network calls but is not covered
+    by pytest-socket.
+
+    This test setup will cause tests to fail immediately if socket.getaddrinfo
+    is called.
+    """
 
     def block_lookup(*args, **kwargs):
         raise SocketBlockedError
