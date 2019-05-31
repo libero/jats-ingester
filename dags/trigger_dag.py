@@ -53,9 +53,11 @@ def get_zip_files_to_process():
     return incoming.difference(expanded)
 
 
-def run_dag_for_each_file(**context):
+def run_dag_for_each_file(dag_to_trigger, **context):
     file_names = get_return_value_from_previous_task(**context)
-    dag_to_trigger = process_elife_zip_dag.dag.dag_id
+    message = 'None type passed from previous task. Accepted types are set, list or tuple.'
+    assert file_names is not None, message
+
     for file_name in file_names:
         trigger_dag(dag_id=dag_to_trigger,
                     run_id='{}_{}'.format(file_name, uuid4()),
@@ -79,6 +81,7 @@ task_2 = python_operator.PythonOperator(
     task_id='run_dag_for_each_file',
     provide_context=True,
     python_callable=run_dag_for_each_file,
+    op_args=[process_elife_zip_dag.dag.dag_id],
     dag=dag
 )
 
