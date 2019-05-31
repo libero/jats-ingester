@@ -5,7 +5,7 @@ stop:
 	docker-compose down -v
 
 tests:
-	docker-compose -f docker-compose.test.yml run --rm --service-ports test
+	docker-compose -f docker-compose.test.yml run --rm --service-ports run-tests
 
 zip-1:
 	docker-compose run --rm awscli awslocal s3 cp ./elife-666-vor-r1.zip s3://dev-elife-style-content-adapter-incoming
