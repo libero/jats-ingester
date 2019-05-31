@@ -64,7 +64,7 @@ def run_dag_for_each_file(dag_to_trigger, **context):
                     conf=json.dumps({'file': file_name}),
                     execution_date=None,
                     replace_microseconds=False)
-    logger.debug('triggered %s for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
+    logger.info('triggered %s for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
 
 
 dag = DAG('trigger_process_zip_dag',

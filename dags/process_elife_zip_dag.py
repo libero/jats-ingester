@@ -41,7 +41,7 @@ def extract_archived_files_to_bucket(**context):
     dag_run = context['dag_run']
     conf = dag_run.conf or {}
     file_name = conf.get('file')
-    logger.debug('FILE PASSED= %s', file_name)
+    logger.info('FILE NAME PASSED FROM TRIGGER= %s', file_name)
     message = '%s triggered without a file name passed to conf' % dag_run.dag_id
     assert file_name, message
 
@@ -50,7 +50,7 @@ def extract_archived_files_to_bucket(**context):
         s3 = get_aws_connection('s3')
         # store downloaded file in temp file
         s3.download_fileobj(SOURCE_BUCKET, file_name, temp_file)
-        logger.debug('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
+        logger.info('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
         # only one .xml file allowed
         # TODO: support supplementary xml files
@@ -82,7 +82,7 @@ def prepare_jats_xml_for_libero(**context):
     # get xml path passed from previous task
     previous_task = get_previous_task_name(**context)
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
-    logger.debug('FILE PASSED= %s', xml_path)
+    logger.info('XML PATH PASSED FROM PREVIOUS TASK= %s', xml_path)
     message = 'path to xml document was not passed from task %s' % previous_task
     assert xml_path is not None, message
 
