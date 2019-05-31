@@ -10,11 +10,9 @@ from dags.process_elife_zip_dag import (
     ALLOWED_EXTENSIONS
 )
 from tests.assets import get_asset
-from tests.mocks import s3ClientMock
 
 
-def test_extract_archived_files_to_bucket(mocker, context):
-    mocker.patch('boto3.client', new_callable=s3ClientMock)
+def test_extract_archived_files_to_bucket(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
     result = extract_archived_files_to_bucket(**context)
     assert result == 'elife-666-vor-r1/elife-666.xml'
@@ -29,8 +27,7 @@ def test_extract_archived_files_to_bucket_raises_exception_if_file_name_not_pass
         assert str(error.value) == msg
 
 
-def test_extract_archived_files_to_bucket_raises_exception_if_more_than_one_xml_in_zip(mocker, context):
-    mocker.patch('boto3.client', new_callable=s3ClientMock)
+def test_extract_archived_files_to_bucket_raises_exception_if_more_than_one_xml_in_zip(mocker, context, s3_client):
     file_name = 'elife-666-vor-r1.zip'
     xml_files = ['test1.xml', 'test2.xml']
     context['dag_run'].conf = {'file': file_name}
@@ -43,8 +40,7 @@ def test_extract_archived_files_to_bucket_raises_exception_if_more_than_one_xml_
         assert str(error.value) == msg
 
 
-def test_extract_archived_files_to_bucket_raises_exception_if_no_xml_files_in_zip(mocker, context):
-    mocker.patch('boto3.client', new_callable=s3ClientMock)
+def test_extract_archived_files_to_bucket_raises_exception_if_no_xml_files_in_zip(mocker, context, s3_client):
     file_name = 'elife-666-vor-r1.zip'
     xml_files = []
     context['dag_run'].conf = {'file': file_name}
@@ -57,15 +53,13 @@ def test_extract_archived_files_to_bucket_raises_exception_if_no_xml_files_in_zi
         assert str(error.value) == msg
 
 
-def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(mocker, context):
-    client = mocker.patch('boto3.client', new_callable=s3ClientMock)
+def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
     extract_archived_files_to_bucket(**context)
-    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in client.uploaded_files)
+    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
 
 
-def test_prepare_jats_xml_for_libero(mocker, context):
-    mocker.patch('boto3.client', new_callable=s3ClientMock)
+def test_prepare_jats_xml_for_libero(context, s3_client):
     # populate expected return value of previous task
     file_name = 'elife-666.xml'
     ti = context['dag_run'].get_task_instances()[0]

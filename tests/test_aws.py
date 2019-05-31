@@ -37,11 +37,10 @@ def test_get_aws_connection(url, expected):
      mocks.list_objects_v2_source_bucket,
      [])
 ])
-def test_list_bucket_keys_iter(params, response, expected, mocker):
+def test_list_bucket_keys_iter(params, response, expected, mocker, s3_client):
     if not expected:
         response.pop('Contents', None)
         response.pop('CommonPrefixes', None)
 
-    mocker.patch('boto3.client', new_callable=mocks.s3ClientMock)
     keys = list_bucket_keys_iter(response=[response], **params)
     assert list(keys) == expected

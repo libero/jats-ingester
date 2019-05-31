@@ -6,6 +6,7 @@ from airflow.utils.db import create_session
 from airflow.utils.state import State
 from pytest_socket import disable_socket, SocketBlockedError
 
+from tests import mocks
 from tests.factories import DAGFactory, PythonOperatorFactory
 
 
@@ -56,3 +57,11 @@ def context():
     ti = dag_run.get_task_instances()[1]
     ti.task = current_task
     return ti.get_template_context()
+
+
+@pytest.fixture
+def s3_client(mocker):
+    """
+    mocks boto client
+    """
+    return mocker.patch('boto3.client', new_callable=mocks.s3ClientMock)
