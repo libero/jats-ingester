@@ -16,7 +16,7 @@ Contents:
 ## Getting started
 This project provides a `Makefile` with short commands to run common tasks.
 Typically, MacOS and most Linux distributions come with [gnu make](https://www.gnu.org/software/make/)
-installed. If are unable to run the commands below because your system doesn't 
+installed. If you are unable to run the commands below because your system doesn't 
 have `gnu make` installed, you can try to install it or copy and paste commands
 found in the `Makefile` into your command line interface.
 
