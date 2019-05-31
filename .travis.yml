@@ -11,6 +11,7 @@ install:
     - travis_retry docker-compose build
 
 script:
+    - make tests
     - .travis/smoke-test.sh
 
 if: |

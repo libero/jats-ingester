@@ -7,7 +7,8 @@ services:
       - SERVICES=s3
       - PORT_WEB_UI=8081
       - DEFAULT_REGION=eu-west-2
-      - DATA_DIR=/tmp/localstack/data
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
     ports:
       - "8081:8081"
 
@@ -18,12 +19,13 @@ services:
     working_dir: /src/app
     volumes:
       - ./scripts/create-s3-buckets.sh:/src/app/create-s3-buckets.sh
-      - ./elife-666-vor-r1.zip:/src/app/elife-666-vor-r1.zip
+      - ./tests/assets/elife-666-vor-r1.zip:/src/app/elife-666-vor-r1.zip
+      - ./tests/assets/elife-666-vor-r2.zip:/src/app/elife-666-vor-r2.zip
     command: ./create-s3-buckets.sh
     depends_on:
       - localstack
     environment:
-      WAIT_HOSTS: localstack:4572
+      WAIT_HOSTS: localstack:4572, localstack:4563
       LOCALSTACK_HOST: localstack
 
   db:
@@ -50,6 +52,8 @@ services:
       WAIT_HOSTS: db:5432
     volumes:
       - ./dags:/airflow/dags
+      - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/airflow.dev.cfg:/airflow/airflow.cfg
 
   airflow_webserver:
     <<: *airflow
