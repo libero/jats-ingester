@@ -36,7 +36,7 @@ default_args = {
 }
 
 
-def extract_zipped_files_to_bucket(**context):
+def extract_archived_files_to_bucket(**context):
     # get file name passed from trigger
     dag_run = context['dag_run']
     conf = dag_run.conf or {}
@@ -102,9 +102,9 @@ dag = DAG('process_elife_zip_dag',
           schedule_interval=None)
 
 task_1 = python_operator.PythonOperator(
-    task_id='extract_zipped_files_to_bucket',
+    task_id='extract_archived_files_to_bucket',
     provide_context=True,
-    python_callable=extract_zipped_files_to_bucket,
+    python_callable=extract_archived_files_to_bucket,
     dag=dag
 )
 
