@@ -63,18 +63,20 @@ def extract_archived_files_to_bucket(**context):
         xml_path = None
         for zipped_file_path in ZipFile(temp_file).namelist():
             if Path(zipped_file_path).suffix in ALLOWED_EXTENSIONS:
-                with TemporaryFile() as inner_temp_file:
-                    # store zipped file in temp file
-                    inner_temp_file.write(ZipFile(temp_file).read(zipped_file_path))
-                    inner_temp_file.seek(0)
-                    s3_key = '%s/%s' % (folder_name, zipped_file_path)
-                    # upload stored zipped file preserving zip file structure
-                    s3.upload_fileobj(inner_temp_file, DESTINATION_BUCKET, s3_key)
-                    logger.info(
-                        '%s uploaded to %s/%s', zipped_file_path, DESTINATION_BUCKET, s3_key
-                    )
-                    if zipped_file_path.endswith('.xml'):
-                        xml_path = s3_key
+                s3_key = '%s/%s' % (folder_name, zipped_file_path)
+                s3.put_object(
+                    Bucket=DESTINATION_BUCKET,
+                    Key=s3_key,
+                    Body=ZipFile(temp_file).read(zipped_file_path)
+                )
+                logger.info(
+                    '%s uploaded to %s/%s',
+                    zipped_file_path,
+                    DESTINATION_BUCKET,
+                    s3_key
+                )
+                if zipped_file_path.endswith('.xml'):
+                    xml_path = s3_key
         return xml_path
 
 
@@ -86,13 +88,9 @@ def prepare_jats_xml_for_libero(**context):
     message = 'path to xml document was not passed from task %s' % previous_task
     assert xml_path is not None, message
 
-    # temporary files are securely stored on disk and automatically deleted when closed
-    with TemporaryFile() as temp_file:
-        s3 = get_aws_connection('s3')
-        # store downloaded file in temp file
-        s3.download_fileobj(DESTINATION_BUCKET, xml_path, temp_file)
-        temp_file.seek(0)
-        xml = etree.parse(BytesIO(temp_file.read()))
+    s3 = get_aws_connection('s3')
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=xml_path)
+    xml = etree.parse(BytesIO(response['Body'].read()))
     return etree.tostring(xml)
 
 

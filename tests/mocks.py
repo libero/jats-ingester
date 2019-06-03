@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from tests.assets import get_asset
 
 
@@ -16,6 +18,13 @@ class s3ClientMock:
 
     def upload_fileobj(self, file_obj, bucket, key):
         self.uploaded_files.append(key)
+
+    def get_object(self, *args, **kwargs):
+        self.downloaded_files.append(kwargs['Key'])
+        return {'Body': BytesIO(get_asset(kwargs['Key']))}
+
+    def put_object(self, *args, **kwargs):
+        self.uploaded_files.append(kwargs['Key'])
 
     def get_paginator(self, *args):
         return self
