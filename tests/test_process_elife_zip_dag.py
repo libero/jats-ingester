@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 from airflow import configuration
-from libero_schemas.utils import get_schema_file_path
 from lxml import etree
 
 from dags.process_elife_zip_dag import (
