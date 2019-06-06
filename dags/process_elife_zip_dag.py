@@ -7,20 +7,25 @@ from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryFile
+from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
 from airflow import DAG, configuration
 from airflow.operators import python_operator
 from airflow.utils import timezone
 from lxml import etree
+from lxml.builder import ElementMaker
 
-from aws import get_aws_connection, list_bucket_keys_iter
+from aws import get_aws_connection
 from task_helpers import get_previous_task_name
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}
 
+ENDPOINT_URL = configuration.conf.get('libero', 'endpoint_url') or 'https://s3.amazonaws.com'
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
+SERVICE_NAME = configuration.conf.get('libero', 'service_name')
+SERVICE_URL = configuration.conf.get('libero', 'service_url')
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +95,38 @@ def prepare_jats_xml_for_libero(**context):
 
     s3 = get_aws_connection('s3')
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=xml_path)
-    xml = etree.parse(BytesIO(response['Body'].read()))
-    return etree.tostring(xml)
+    article_xml = etree.parse(BytesIO(response['Body'].read()))
+
+    # get article id
+    article_id = article_xml.xpath(
+        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
+    )[0].text
+
+    # add jats prefix to jats tags
+    for element in article_xml.iter():
+        if not element.prefix:
+            element.tag = '{http://jats.nlm.nih.gov}%s' % element.tag
+
+    # add xml:base attribute to article element
+    key = Path(xml_path).parent.stem
+    root = article_xml.getroot()
+    root.set(
+        '{%s}base' % XML_NAMESPACE,
+        '%s/%s/%s' % (ENDPOINT_URL, DESTINATION_BUCKET, key)
+    )
+
+    # create libero xml
+    doc = ElementMaker(nsmap={None: 'http://libero.pub',
+                              'jats': 'http://jats.nlm.nih.gov'})
+    xml = doc.item(
+        doc.meta(
+            doc.id(article_id),
+            doc.service(SERVICE_NAME)
+        ),
+        root
+    )
+
+    return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
 
 
 # schedule_interval is None because DAG is only run when triggered

@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 from tests.assets import get_asset
 
@@ -21,7 +22,7 @@ class s3ClientMock:
 
     def get_object(self, *args, **kwargs):
         self.downloaded_files.append(kwargs['Key'])
-        return {'Body': BytesIO(get_asset(kwargs['Key']))}
+        return {'Body': BytesIO(get_asset(Path(kwargs['Key']).name))}
 
     def put_object(self, *args, **kwargs):
         self.uploaded_files.append(kwargs['Key'])

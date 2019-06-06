@@ -2,6 +2,8 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from airflow import configuration
+from libero_schemas.utils import get_schema_file_path
 from lxml import etree
 
 from dags.process_elife_zip_dag import (
@@ -9,7 +11,6 @@ from dags.process_elife_zip_dag import (
     prepare_jats_xml_for_libero,
     ALLOWED_EXTENSIONS
 )
-from tests.assets import get_asset
 
 
 def test_extract_archived_files_to_bucket(context, s3_client):
@@ -62,12 +63,29 @@ def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(contex
 
 def test_prepare_jats_xml_for_libero(context, s3_client):
     # populate expected return value of previous task
-    file_name = 'elife-666.xml'
+    file_name = '/elife-666-vor-r1/elife-666.xml'
     ti = context['dag_run'].get_task_instances()[0]
     ti.xcom_push(key='return_value', value=file_name)
+
     result = prepare_jats_xml_for_libero(**context)
-    expected = etree.parse(BytesIO(get_asset(file_name)))
-    assert result == etree.tostring(expected)
+    xml = etree.parse(BytesIO(result))
+    namespaces = {'libero': 'http://libero.pub',
+                  'jats': 'http://jats.nlm.nih.gov'}
+
+    article_id = xml.xpath('//libero:item/libero:meta/libero:id',
+                           namespaces=namespaces)[0]
+    assert article_id.text == '00666'
+
+    service_name = configuration.conf.get('libero', 'service_name')
+    assert service_name is not None
+
+    service = xml.xpath('//libero:item/libero:meta/libero:service',
+                        namespaces=namespaces)[0]
+    assert service.text == service_name
+
+    article = xml.xpath('//libero:item/jats:article', namespaces=namespaces)[0]
+    assert article is not None
+    assert len(article.getchildren()) > 0
 
 
 def test_prepare_jats_xml_for_libero_raises_exception(context):
