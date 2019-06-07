@@ -10,14 +10,15 @@ from tempfile import TemporaryFile
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
+import requests
 from airflow import DAG, configuration
 from airflow.operators import python_operator
 from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
 
-from aws import get_aws_connection
-from task_helpers import get_previous_task_name
+from aws import get_aws_connection, list_bucket_keys_iter
+from task_helpers import get_previous_task_name, get_return_value_from_previous_task
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}
 
@@ -129,6 +130,19 @@ def prepare_jats_xml_for_libero(**context):
     return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
 
 
+def send_put_request_to_service(**context):
+    return_value = get_return_value_from_previous_task(**context)
+    message = 'the previous task did not return data to send to %s' % SERVICE_URL
+    assert return_value is not None, message
+    response = requests.put(
+        SERVICE_URL,
+        data=return_value,
+        headers={'content-type': 'application/xml'}
+    )
+    response.raise_for_status()
+    logger.info('RESPONSE= %s: %s', response.status_code, response.text)
+
+
 # schedule_interval is None because DAG is only run when triggered
 dag = DAG('process_elife_zip_dag',
           default_args=default_args,
@@ -148,4 +162,12 @@ task_2 = python_operator.PythonOperator(
     dag=dag
 )
 
+task_3 = python_operator.PythonOperator(
+    task_id='send_put_request_to_service',
+    provide_context=True,
+    python_callable=send_put_request_to_service,
+    dag=dag
+)
+
 task_1.set_downstream(task_2)
+task_2.set_downstream(task_3)

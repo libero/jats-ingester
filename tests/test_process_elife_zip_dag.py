@@ -8,6 +8,7 @@ from lxml import etree
 from dags.process_elife_zip_dag import (
     extract_archived_files_to_bucket,
     prepare_jats_xml_for_libero,
+    send_put_request_to_service,
     ALLOWED_EXTENSIONS
 )
 
@@ -92,3 +93,25 @@ def test_prepare_jats_xml_for_libero_raises_exception(context):
     with pytest.raises(AssertionError) as error:
         prepare_jats_xml_for_libero(**context)
         assert str(error.value) == msg
+
+
+def test_send_put_request_to_service(context, requests_mock):
+    # populate expected return value of previous task
+    return_value = b'<test>test text</test>'
+    ti = context['dag_run'].get_task_instances()[0]
+    ti.xcom_push(key='return_value', value=return_value)
+
+    from dags import process_elife_zip_dag as pezd
+    test_url = 'http://test-url.org'
+    pezd.SERVICE_URL = test_url
+    requests_mock.put(test_url, status_code=202)
+    send_put_request_to_service(**context)
+
+def test_send_put_request_to_service_raises_exception(context):
+    from dags import process_elife_zip_dag as pezd
+    test_url = 'http://test-url.org'
+    pezd.SERVICE_URL = test_url
+    message = 'the previous task did not return data to send to %s' % pezd.SERVICE_URL
+    with pytest.raises(AssertionError) as error:
+        send_put_request_to_service(**context)
+        assert str(error.value) == message
