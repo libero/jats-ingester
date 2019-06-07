@@ -7,7 +7,7 @@ from lxml import etree
 
 from dags.process_elife_zip_dag import (
     extract_archived_files_to_bucket,
-    prepare_jats_xml_for_libero,
+    wrap_article_in_libero_xml_and_send_to_service,
     ALLOWED_EXTENSIONS
 )
 
@@ -60,7 +60,7 @@ def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(contex
     assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
 
 
-def test_prepare_jats_xml_for_libero(context, s3_client, requests_mock):
+def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
     # populate expected return value of previous task
     file_name = '/elife-666-vor-r1/elife-666.xml'
     ti = context['dag_run'].get_task_instances()[0]
@@ -71,7 +71,7 @@ def test_prepare_jats_xml_for_libero(context, s3_client, requests_mock):
     pezd.SERVICE_URL = test_url
     session = requests_mock.put(test_url)
 
-    prepare_jats_xml_for_libero(**context)
+    wrap_article_in_libero_xml_and_send_to_service(**context)
 
     request_data = bytes(session.last_request.text, encoding='UTF-8')
     xml = etree.parse(BytesIO(request_data))
@@ -94,8 +94,8 @@ def test_prepare_jats_xml_for_libero(context, s3_client, requests_mock):
     assert len(article.getchildren()) > 0
 
 
-def test_prepare_jats_xml_for_libero_raises_exception(context):
+def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception(context):
     msg = 'path to xml document was not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
-        prepare_jats_xml_for_libero(**context)
+        wrap_article_in_libero_xml_and_send_to_service(**context)
         assert str(error.value) == msg

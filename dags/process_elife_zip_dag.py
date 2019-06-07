@@ -86,7 +86,7 @@ def extract_archived_files_to_bucket(**context):
         return xml_path
 
 
-def prepare_jats_xml_for_libero(**context):
+def wrap_article_in_libero_xml_and_send_to_service(**context):
     # get xml path passed from previous task
     previous_task = get_previous_task_name(**context)
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
@@ -150,9 +150,9 @@ task_1 = python_operator.PythonOperator(
 )
 
 task_2 = python_operator.PythonOperator(
-    task_id='prepare_jats_xml_for_libero',
+    task_id='wrap_article_in_libero_xml_and_send_to_service',
     provide_context=True,
-    python_callable=prepare_jats_xml_for_libero,
+    python_callable=wrap_article_in_libero_xml_and_send_to_service,
     dag=dag
 )
 
