@@ -40,6 +40,13 @@ services:
       timeout: 30s
       retries: 3
 
+  app:
+    build:
+      target: base
+      context: .
+    image: libero/jats-ingester:${IMAGE_TAG:-master}
+    command: sh
+
   airflow_initdb:
     &airflow
     build:
@@ -54,6 +61,8 @@ services:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config
       - ./config/airflow.dev.cfg:/airflow/airflow.cfg
+    depends_on:
+      - app
 
   airflow_webserver:
     <<: *airflow
