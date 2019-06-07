@@ -10,6 +10,7 @@ from tempfile import TemporaryFile
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
+import requests
 from airflow import DAG, configuration
 from airflow.operators import python_operator
 from airflow.utils import timezone
@@ -85,7 +86,7 @@ def extract_archived_files_to_bucket(**context):
         return xml_path
 
 
-def prepare_jats_xml_for_libero(**context):
+def wrap_article_in_libero_xml_and_send_to_service(**context):
     # get xml path passed from previous task
     previous_task = get_previous_task_name(**context)
     xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
@@ -126,7 +127,14 @@ def prepare_jats_xml_for_libero(**context):
         root
     )
 
-    return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
+    # make PUT request to service
+    response = requests.put(
+        '%s/items/%s/versions/1' % (SERVICE_URL, article_id),
+        data=etree.tostring(xml, xml_declaration=True, encoding='UTF-8'),
+        headers={'content-type': 'application/xml'}
+    )
+    response.raise_for_status()
+    logger.info('RESPONSE= %s: %s', response.status_code, response.text)
 
 
 # schedule_interval is None because DAG is only run when triggered
@@ -142,9 +150,9 @@ task_1 = python_operator.PythonOperator(
 )
 
 task_2 = python_operator.PythonOperator(
-    task_id='prepare_jats_xml_for_libero',
+    task_id='wrap_article_in_libero_xml_and_send_to_service',
     provide_context=True,
-    python_callable=prepare_jats_xml_for_libero,
+    python_callable=wrap_article_in_libero_xml_and_send_to_service,
     dag=dag
 )
 
