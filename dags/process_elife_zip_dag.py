@@ -129,7 +129,7 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
 
     # make PUT request to service
     response = requests.put(
-        SERVICE_URL,
+        '%s/items/%s/version/1' % (SERVICE_URL, article_id),
         data=etree.tostring(xml, xml_declaration=True, encoding='UTF-8'),
         headers={'content-type': 'application/xml'}
     )

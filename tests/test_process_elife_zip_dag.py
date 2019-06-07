@@ -69,7 +69,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     from dags import process_elife_zip_dag as pezd
     test_url = 'http://test-url.org'
     pezd.SERVICE_URL = test_url
-    session = requests_mock.put(test_url)
+    session = requests_mock.put('%s/items/00666/version/1' %  test_url)
 
     wrap_article_in_libero_xml_and_send_to_service(**context)
 
