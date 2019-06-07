@@ -1,7 +1,7 @@
 import boto3
 from airflow import configuration
 
-ENDPOINT_URL = configuration.conf.get('libero', 'endpoint_url')
+BOTO_ENDPOINT_URL = configuration.conf.get('libero', 'boto_endpoint_url')
 
 
 def get_aws_connection(service: str):
@@ -9,8 +9,8 @@ def get_aws_connection(service: str):
     Helper function created because endpoint_url setting (required for local
     development) cannot be configured.
     """
-    if ENDPOINT_URL:
-        return boto3.client(service, endpoint_url=ENDPOINT_URL)
+    if BOTO_ENDPOINT_URL:
+        return boto3.client(service, endpoint_url=BOTO_ENDPOINT_URL)
     else:
         return boto3.client(service)
 

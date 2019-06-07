@@ -10,7 +10,7 @@ from dags.trigger_dag import SOURCE_BUCKET, DESTINATION_BUCKET
 ])
 def test_get_aws_connection(url, expected):
     import dags.aws
-    dags.aws.ENDPOINT_URL = url
+    dags.aws.BOTO_ENDPOINT_URL = url
     conn = get_aws_connection('s3')
     assert conn._endpoint._endpoint_prefix == 's3'
     assert conn._endpoint.host == expected

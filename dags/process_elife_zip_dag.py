@@ -21,7 +21,7 @@ from task_helpers import get_previous_task_name
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}
 
-ENDPOINT_URL = configuration.conf.get('libero', 'endpoint_url') or 'https://s3.amazonaws.com'
+BASE_URL = configuration.conf.get('libero', 'base_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
@@ -112,7 +112,7 @@ def prepare_jats_xml_for_libero(**context):
     root = article_xml.getroot()
     root.set(
         '{%s}base' % XML_NAMESPACE,
-        '%s/%s/%s' % (ENDPOINT_URL, DESTINATION_BUCKET, key)
+        '%s/%s' % (BASE_URL, key)
     )
 
     # create libero xml
