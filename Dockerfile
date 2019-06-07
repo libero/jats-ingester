@@ -20,6 +20,7 @@ COPY ./dags ${AIRFLOW_HOME}/dags
 
 RUN chown -R airflow: .
 
+
 FROM base as dev
 
 ENV PYTHONUNBUFFERED=true
