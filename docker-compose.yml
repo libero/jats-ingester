@@ -89,7 +89,7 @@ services:
       retries: 3
 
   content-store:
-    image: jats-ingester-airflow_webserver
+    image: jats-ingester_airflow_webserver
     build:
       context: .
       target: dev
