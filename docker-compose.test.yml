@@ -2,7 +2,6 @@ version: '3.4'
 
 services:
   run-tests:
-    image: jats-ingester_airflow_webserver
     build:
       context: .
       target: dev
