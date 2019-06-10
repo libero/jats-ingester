@@ -54,6 +54,7 @@ services:
       context: .
     command: upgradedb
     depends_on:
+      - app
       - db
     environment:
       WAIT_HOSTS: db:5432
@@ -61,8 +62,6 @@ services:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config
       - ./config/airflow.dev.cfg:/airflow/airflow.cfg
-    depends_on:
-      - app
 
   airflow_webserver:
     <<: *airflow
