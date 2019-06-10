@@ -40,6 +40,7 @@ services:
       timeout: 30s
       retries: 3
 
+# only used to tag the base image ready to be uploaded to dockerhub
   app:
     build:
       target: base
@@ -69,7 +70,7 @@ services:
     ports:
       - 8080:8080
     healthcheck:
-      test: ["CMD-SHELL", "python ./scripts/airflow_healthcheck.py"]
+      test: ["CMD-SHELL", "python ./scripts/airflow_webserver_healthcheck.py"]
       interval: 30s
       timeout: 30s
       retries: 3
@@ -81,3 +82,8 @@ services:
   airflow_worker:
     <<: *airflow
     command: worker
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8793'"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
