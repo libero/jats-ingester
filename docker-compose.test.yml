@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   run-tests:
-    image: elife-style-content-adapter-prototype_airflow_webserver
+    image: jats-ingester_airflow_webserver
     build:
       context: .
       target: dev

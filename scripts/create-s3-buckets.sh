@@ -6,6 +6,6 @@ set -e
 # For further details go to: https://github.com/ufoscout/docker-compose-wait
 /wait
 
-awslocal s3 mb s3://dev-elife-style-content-adapter-incoming
-awslocal s3 mb s3://dev-elife-style-content-adapter-expanded
-awslocal s3 cp ./elife-666-vor-r1.zip s3://dev-elife-style-content-adapter-incoming
+awslocal s3 mb s3://dev-jats-ingester-incoming
+awslocal s3 mb s3://dev-jats-ingester-expanded
+awslocal s3 cp ./elife-666-vor-r1.zip s3://dev-jats-ingester-incoming

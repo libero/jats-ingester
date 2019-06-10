@@ -1,6 +1,6 @@
-# Libero eLife-style Content Adapter Prototype
+# Libero JATS Ingester
 
-This project is an implementation of Libero eLife-style Content Adapter.
+This project is an implementation of Libero JATS Ingester.
 
 Contents:
  - [Dependencies](#dependencies)
