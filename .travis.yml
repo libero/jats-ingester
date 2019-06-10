@@ -6,6 +6,7 @@ env:
     global:
         # hyphen in project names are stripped away in Travis's CI old docker-compose version
         - COMPOSE_PROJECT_NAME=elifestylecontentadapterprototype
+        - IMAGE_TAG=$TRAVIS_COMMIT
 
 install:
     - travis_retry docker-compose build
