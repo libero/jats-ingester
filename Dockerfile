@@ -17,6 +17,7 @@ RUN pip install -U pip \
     && rm -rf /tmp/*
 
 COPY ./dags ${AIRFLOW_HOME}/dags
+COPY scripts/ scripts/
 
 RUN chown -R airflow: .
 USER airflow
@@ -33,8 +34,6 @@ RUN chmod +x /wait
 
 RUN pip install --no-cache-dir -r requirements/dev.txt \
     && rm -rf /tmp/*
-
-COPY scripts/ scripts/
 
 USER airflow
 ENTRYPOINT ["./scripts/airflow-entrypoint.sh"]
