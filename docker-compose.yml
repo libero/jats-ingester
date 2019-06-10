@@ -40,6 +40,13 @@ services:
       timeout: 30s
       retries: 3
 
+  app:
+    build:
+      target: base
+      context: .
+    image: libero/jats-ingester:${IMAGE_TAG:-master}
+    command: sh
+
   airflow_initdb:
     &airflow
     build:
@@ -47,6 +54,7 @@ services:
       context: .
     command: upgradedb
     depends_on:
+      - app
       - db
     environment:
       WAIT_HOSTS: db:5432
