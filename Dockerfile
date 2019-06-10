@@ -19,9 +19,11 @@ RUN pip install -U pip \
 COPY ./dags ${AIRFLOW_HOME}/dags
 
 RUN chown -R airflow: .
+USER airflow
 
 
 FROM base as dev
+USER root
 
 ENV PYTHONUNBUFFERED=true
 ENV PYTHONDONTWRITEBYTECODE=true
