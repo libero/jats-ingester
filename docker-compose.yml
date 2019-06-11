@@ -87,3 +87,12 @@ services:
       interval: 30s
       timeout: 30s
       retries: 3
+
+  content-store:
+    build:
+      context: .
+      target: dev
+    entrypoint: ""
+    volumes:
+      - ./content-store.py:/airflow/content-store.py
+    command: python content-store.py
