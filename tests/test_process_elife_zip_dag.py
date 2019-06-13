@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from xml.dom import XML_NAMESPACE
 
 import pytest
 from airflow import configuration
@@ -92,6 +93,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     article = xml.xpath('//libero:item/jats:article', namespaces=namespaces)[0]
     assert article is not None
     assert len(article.getchildren()) > 0
+    assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception(context):

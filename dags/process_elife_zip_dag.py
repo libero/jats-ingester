@@ -113,7 +113,7 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
     root = article_xml.getroot()
     root.set(
         '{%s}base' % XML_NAMESPACE,
-        '%s/%s' % (BASE_URL, key)
+        '%s/%s/' % (BASE_URL, key)
     )
 
     # create libero xml
