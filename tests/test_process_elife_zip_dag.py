@@ -14,56 +14,52 @@ from dags.process_elife_zip_dag import (
 
 
 def test_extract_archived_files_to_bucket(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     result = extract_archived_files_to_bucket(**context)
-    assert result == 'elife-666-vor-r1/elife-666.xml'
+    assert result == 'elife-00666-vor-r1/elife-00666.xml'
 
 
-@pytest.mark.parametrize('file_name, xml_files, conf, message', [
-    (
-        None,
-        [],
-        None,
-        '{dag_id} triggered without a file name passed to conf'
-    ),
-    (
-        'elife-666-vor-r1.zip',
-        ['test1.xml', 'test2.xml'],
-        {'file': 'elife-666-vor-r1.zip'},
-        'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
-    ),
-    (
-        'elife-666-vor-r1.zip',
-        [],
-        {'file': 'elife-666-vor-r1.zip'},
-        'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
-    ),
+def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
+    extract_archived_files_to_bucket(**context)
+    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
+
+
+@pytest.mark.parametrize('name', [
+    'test.zip',
+    'test_zip.zip',
+    'test!-this.zip',
+    'test-!this.zip',
+    'don\'t-do-this.zip'
 ])
-def test_extract_archived_files_to_bucket_raises_exception(
-        file_name, xml_files, conf, message, mocker, context, s3_client):
-
-    context['dag_run'].conf = conf
-    mocker.patch('zipfile.ZipFile.namelist', return_value=xml_files)
-    msg = message.format(
-        dag_id=context['dag_run'].dag_id,
-        len_files=len(xml_files),
-        xml_files=xml_files,
-        file_name=file_name
-    )
+def test_extract_archived_files_to_bucket_raises_exception_if_zip_name_is_malformed(name, context):
+    context['dag_run'].conf = {'file': name}
+    msg =('%s is malformed. Expected archive name to start with '
+          'any number/character, hyphen, any number/character (%s)'
+          'example: name-id.extension' % (name, r'^\w+-\w+'))
     with pytest.raises(AssertionError) as error:
         extract_archived_files_to_bucket(**context)
         assert str(error.value) == msg
 
 
-def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
-    extract_archived_files_to_bucket(**context)
-    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
+def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_zip(context, mocker, s3_client):
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
+    mocker.patch('zipfile.ZipFile.namelist', return_value=[])
+    with pytest.raises(FileNotFoundError) as error:
+        extract_archived_files_to_bucket(**context)
+        assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
+
+
+def test_extract_archived_files_to_bucket_raises_exception_when_file_not_passed_from_previous_task(context):
+    msg = '%s triggered without a file name passed to conf' % context['dag_run'].dag_id
+    with pytest.raises(AssertionError) as error:
+        extract_archived_files_to_bucket(**context)
+        assert str(error.value) == msg
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
     # populate expected return value of previous task
-    file_name = '/elife-666-vor-r1/elife-666.xml'
+    file_name = '/elife-00666-vor-r1/elife-00666.xml'
     ti = context['dag_run'].get_task_instances()[0]
     ti.xcom_push(key='return_value', value=file_name)
 

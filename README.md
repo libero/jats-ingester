@@ -36,13 +36,6 @@ Localstack
 
 * `make tests` runs unit tests.
 
-## Other useful commands
-
-* `make zip-1` copies a zip file into localstack's S3 incoming bucket
-* `make zip-2` copies a second zip file into localstack's S3 incoming bucket
-* `make del-zip-1` deletes zip-1 from localstack's S3 incoming bucket
-* `make del-zip-2` deletes zip-2 from localstack's S3 incoming bucket
-
 ## Getting help
 
 - Report a bug or request a feature on [GitHub](https://github.com/libero/libero/issues/new/choose).

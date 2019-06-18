@@ -19,8 +19,8 @@ def test_get_aws_connection(url, expected):
 @pytest.mark.parametrize('params, response, expected', [
     (
         {'Bucket': SOURCE_BUCKET, 'Delimiter': '.zip'},
-        {'CommonPrefixes':[{'Prefix': 'elife-666-vor-r1.zip'}]},
-        ['elife-666-vor-r1.zip']
+        {'CommonPrefixes':[{'Prefix': 'elife-00666-vor-r1.zip'}]},
+        ['elife-00666-vor-r1.zip']
     ),
     (
         {'Bucket': SOURCE_BUCKET, 'Delimiter': '.zip'},
@@ -39,8 +39,8 @@ def test_get_aws_connection(url, expected):
     ),
     (
         {'Bucket': SOURCE_BUCKET},
-        {'Contents':[{'Key': 'elife-666-vor-r1.zip'}]},
-        ['elife-666-vor-r1.zip']
+        {'Contents':[{'Key': 'elife-00666-vor-r1.zip'}]},
+        ['elife-00666-vor-r1.zip']
     ),
     (
         {'Bucket': SOURCE_BUCKET},

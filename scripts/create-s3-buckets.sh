@@ -8,4 +8,5 @@ set -e
 
 awslocal s3 mb s3://dev-jats-ingester-incoming
 awslocal s3 mb s3://dev-jats-ingester-expanded
-awslocal s3 cp ./elife-666-vor-r1.zip s3://dev-jats-ingester-incoming
+awslocal s3 cp ./elife-00666-vor-r1.zip s3://dev-jats-ingester-incoming
+awslocal s3 cp ./elife-36842-vor-r3.zip s3://dev-jats-ingester-incoming
