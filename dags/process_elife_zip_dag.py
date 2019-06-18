@@ -3,6 +3,7 @@ DAG processes a zip file stored in an AWS S3 bucket and prepares the extracted x
 file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
+import re
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
@@ -46,43 +47,52 @@ def extract_archived_files_to_bucket(**context):
     # get file name passed from trigger
     dag_run = context['dag_run']
     conf = dag_run.conf or {}
-    file_name = conf.get('file')
-    logger.info('FILE NAME PASSED FROM TRIGGER= %s', file_name)
+    zip_file_name = conf.get('file')
+    logger.info('FILE NAME PASSED FROM TRIGGER= %s', zip_file_name)
     message = '%s triggered without a file name passed to conf' % dag_run.dag_id
-    assert file_name, message
+    assert zip_file_name, message
+
+    # get/validate article name
+    pattern = r'^\w+-\w+'
+    article_name = re.search(pattern, zip_file_name)
+    error_message = ('%s is malformed. Expected archive name to start with '
+                     'any number/character, hyphen, any number/character (%s)'
+                     'example: name-id=version.extension' % (zip_file_name, pattern))
+    assert article_name and zip_file_name.startswith(article_name.group()), error_message
+    article_name = article_name.group() + '.xml'
 
     # temporary files are securely stored on disk and automatically deleted when closed
     with TemporaryFile() as temp_file:
         s3 = get_aws_connection('s3')
         # store downloaded file in temp file
-        s3.download_fileobj(SOURCE_BUCKET, file_name, temp_file)
+        s3.download_fileobj(SOURCE_BUCKET, zip_file_name, temp_file)
         logger.info('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
-        # only one .xml file allowed
-        # TODO: support supplementary xml files
-        xml_files = [fn for fn in ZipFile(temp_file).namelist() if fn.endswith('.xml')]
-        message = ('only 1 XML file supported. %s XML files found in %s: %s' %
-                  (len(xml_files), file_name, xml_files))
-        assert len(xml_files) == 1, message
+        # check if expected article in zip file
+        matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
+        if not matches:
+            error_message = '%s not in %s: %s' % (
+                article_name, zip_file_name, ZipFile(temp_file).namelist()
+            )
+            raise FileNotFoundError(error_message)
 
-        folder_name = file_name.replace('.zip', '')
+        # extract zip to cloud bucket
+        folder_name = zip_file_name.replace('.zip', '')
         xml_path = None
         for zipped_file_path in ZipFile(temp_file).namelist():
             if Path(zipped_file_path).suffix in ALLOWED_EXTENSIONS:
                 s3_key = '%s/%s' % (folder_name, zipped_file_path)
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=s3_key,
-                    Body=ZipFile(temp_file).read(zipped_file_path)
-                )
-                logger.info(
-                    '%s uploaded to %s/%s',
-                    zipped_file_path,
-                    DESTINATION_BUCKET,
-                    s3_key
-                )
-                if zipped_file_path.endswith('.xml'):
+                s3.put_object(Bucket=DESTINATION_BUCKET,
+                              Key=s3_key,
+                              Body=ZipFile(temp_file).read(zipped_file_path))
+                logger.info('%s uploaded to %s/%s',
+                            zipped_file_path,
+                            DESTINATION_BUCKET,
+                            s3_key)
+                if zipped_file_path.endswith(article_name):
                     xml_path = s3_key
+
+        # pass article cloud bucket key to next task
         return xml_path
 
 
