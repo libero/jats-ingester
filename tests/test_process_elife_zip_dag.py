@@ -14,9 +14,9 @@ from dags.process_elife_zip_dag import (
 
 
 def test_extract_archived_files_to_bucket(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     result = extract_archived_files_to_bucket(**context)
-    assert result == 'elife-666-vor-r1/elife-666.xml'
+    assert result == 'elife-666-vor-r1/elife-00666.xml'
 
 
 @pytest.mark.parametrize('file_name, xml_files, conf, message', [
@@ -27,15 +27,15 @@ def test_extract_archived_files_to_bucket(context, s3_client):
         '{dag_id} triggered without a file name passed to conf'
     ),
     (
-        'elife-666-vor-r1.zip',
+        'elife-00666-vor-r1.zip',
         ['test1.xml', 'test2.xml'],
-        {'file': 'elife-666-vor-r1.zip'},
+        {'file': 'elife-00666-vor-r1.zip'},
         'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
     ),
     (
-        'elife-666-vor-r1.zip',
+        'elife-00666-vor-r1.zip',
         [],
-        {'file': 'elife-666-vor-r1.zip'},
+        {'file': 'elife-00666-vor-r1.zip'},
         'only 1 XML file supported. {len_files} XML files found in {file_name}: {xml_files}'
     ),
 ])
@@ -56,14 +56,14 @@ def test_extract_archived_files_to_bucket_raises_exception(
 
 
 def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-666-vor-r1.zip'}
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     extract_archived_files_to_bucket(**context)
     assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
     # populate expected return value of previous task
-    file_name = '/elife-666-vor-r1/elife-666.xml'
+    file_name = '/elife-666-vor-r1/elife-00666.xml'
     ti = context['dag_run'].get_task_instances()[0]
     ti.xcom_push(key='return_value', value=file_name)
 
