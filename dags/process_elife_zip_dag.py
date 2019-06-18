@@ -68,17 +68,8 @@ def extract_archived_files_to_bucket(**context):
         s3.download_fileobj(SOURCE_BUCKET, zip_file_name, temp_file)
         logger.info('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
-        # check if expected article in zip file
-        matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
-        if not matches:
-            error_message = '%s not in %s: %s' % (
-                article_name, zip_file_name, ZipFile(temp_file).namelist()
-            )
-            raise FileNotFoundError(error_message)
-
         # extract zip to cloud bucket
         folder_name = zip_file_name.replace('.zip', '')
-        xml_path = None
         for zipped_file_path in ZipFile(temp_file).namelist():
             if Path(zipped_file_path).suffix in ALLOWED_EXTENSIONS:
                 s3_key = '%s/%s' % (folder_name, zipped_file_path)
@@ -89,11 +80,16 @@ def extract_archived_files_to_bucket(**context):
                             zipped_file_path,
                             DESTINATION_BUCKET,
                             s3_key)
-                if zipped_file_path.endswith(article_name):
-                    xml_path = s3_key
 
-        # pass article cloud bucket key to next task
-        return xml_path
+        # check if expected article in zip file
+        matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
+        if not matches:
+            error_message = '%s not in %s: %s' % (article_name, zip_file_name,
+                                                  ZipFile(temp_file).namelist())
+            raise FileNotFoundError(error_message)
+
+    # pass article cloud bucket key to next task
+    return '%s/%s' % (folder_name, article_name)
 
 
 def wrap_article_in_libero_xml_and_send_to_service(**context):
