@@ -57,7 +57,7 @@ def extract_archived_files_to_bucket(**context):
     article_name = re.search(pattern, zip_file_name)
     error_message = ('%s is malformed. Expected archive name to start with '
                      'any number/character, hyphen, any number/character (%s)'
-                     'example: name-id=version.extension' % (zip_file_name, pattern))
+                     'example: name-id.extension' % (zip_file_name, pattern))
     assert article_name and zip_file_name.startswith(article_name.group()), error_message
     article_name = article_name.group() + '.xml'
 

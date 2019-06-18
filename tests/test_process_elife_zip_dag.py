@@ -36,7 +36,7 @@ def test_extract_archived_files_to_bucket_raises_exception_if_zip_name_is_malfor
     context['dag_run'].conf = {'file': name}
     msg =('%s is malformed. Expected archive name to start with '
           'any number/character, hyphen, any number/character (%s)'
-          'example: name-id=version.extension' % (name, r'^\w+-\w+'))
+          'example: name-id.extension' % (name, r'^\w+-\w+'))
     with pytest.raises(AssertionError) as error:
         extract_archived_files_to_bucket(**context)
         assert str(error.value) == msg
