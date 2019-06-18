@@ -8,7 +8,7 @@ help:
 start:
 	docker-compose up
 
-.PHONY:stop
+.PHONY: stop
 stop:
 	docker-compose down -v
 
