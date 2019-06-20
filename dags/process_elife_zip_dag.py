@@ -17,11 +17,13 @@ from airflow.operators import python_operator
 from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
+from PIL import Image
 
 from aws import get_aws_connection
 from task_helpers import get_previous_task_name
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}  # only upload these file types
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
 
 BASE_URL = configuration.conf.get('libero', 'base_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
@@ -41,6 +43,14 @@ default_args = {
     'retries': 3,
     'retry_delay': timedelta(seconds=5)
 }
+
+
+def is_allowed(file_name: str) -> bool:
+    return Path(file_name).suffix in ALLOWED_EXTENSIONS
+
+
+def is_image(file_name: str) -> bool:
+    return Path(file_name).suffix in IMAGE_EXTENSIONS
 
 
 def extract_archived_files_to_bucket(**context):
@@ -69,17 +79,38 @@ def extract_archived_files_to_bucket(**context):
         logger.info('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
 
         # extract zip to cloud bucket
-        folder_name = zip_file_name.replace('.zip', '')
+        folder_name = zip_file_name.rstrip('.zip')
+        file_to_upload = None
+
         for zipped_file_path in ZipFile(temp_file).namelist():
-            if Path(zipped_file_path).suffix in ALLOWED_EXTENSIONS:
+
+            if is_image(zipped_file_path) and not is_allowed(zipped_file_path):
+                # convert image to jpeg
+                file_to_upload = BytesIO()
+                image = Image.open(BytesIO(ZipFile(temp_file).read(zipped_file_path)))
+                try:
+                    image.save(file_to_upload, 'JPEG')
+                except IOError:
+                    image = image.convert('RGB')
+                    image.save(file_to_upload, 'JPEG')
+                file_to_upload = file_to_upload.getvalue()
+                zipped_file_path = re.sub(r'\.\w+$', '.jpg', zipped_file_path)
+
+            if is_allowed(zipped_file_path):
                 s3_key = '%s/%s' % (folder_name, zipped_file_path)
-                s3.put_object(Bucket=DESTINATION_BUCKET,
-                              Key=s3_key,
-                              Body=ZipFile(temp_file).read(zipped_file_path))
-                logger.info('%s uploaded to %s/%s',
-                            zipped_file_path,
-                            DESTINATION_BUCKET,
-                            s3_key)
+                if not file_to_upload:
+                    file_to_upload = ZipFile(temp_file).read(zipped_file_path)
+                s3.put_object(
+                    Bucket=DESTINATION_BUCKET,
+                    Key=s3_key,
+                    Body=file_to_upload
+                )
+                logger.info(
+                    '%s uploaded to %s/%s',
+                    zipped_file_path,
+                    DESTINATION_BUCKET,
+                    folder_name
+                )
 
         # check if expected article in zip file
         matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
@@ -109,6 +140,13 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
         '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
     )[0].text
 
+    # update image references to .jpg
+    root = article_xml.getroot()
+    for element in root.xpath('//*[@mimetype="image" and @mime-subtype!="jpeg"]'):
+        href = '{http://www.w3.org/1999/xlink}href'
+        element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
+        element.attrib['mime-subtype'] = 'jpeg'
+
     # add jats prefix to jats tags
     for element in article_xml.iter():
         if not element.prefix:
@@ -116,7 +154,6 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
 
     # add xml:base attribute to article element
     key = Path(xml_path).parent.stem
-    root = article_xml.getroot()
     root.set(
         '{%s}base' % XML_NAMESPACE,
         '%s/%s/' % (BASE_URL, key)
