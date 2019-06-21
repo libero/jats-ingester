@@ -1,5 +1,4 @@
 from io import BytesIO
-from pathlib import Path
 from xml.dom import XML_NAMESPACE
 
 import pytest
@@ -8,8 +7,7 @@ from lxml import etree
 
 from dags.process_elife_zip_dag import (
     extract_archived_files_to_bucket,
-    wrap_article_in_libero_xml_and_send_to_service,
-    ALLOWED_EXTENSIONS
+    wrap_article_in_libero_xml_and_send_to_service
 )
 
 
@@ -25,12 +23,6 @@ def test_extract_archived_files_to_bucket_converts_and_uploads_images(context, s
     assert result == 'elife-36842-vor-r3/elife-36842.xml'
     # elife-36842-fig1.tif should now be a .jpg
     assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
-
-
-def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
-    extract_archived_files_to_bucket(**context)
-    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
 
 
 @pytest.mark.parametrize('name', [

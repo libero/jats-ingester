@@ -22,9 +22,6 @@ from PIL import Image
 from aws import get_aws_connection
 from task_helpers import get_previous_task_name
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}  # only upload these file types
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-
 BASE_URL = configuration.conf.get('libero', 'base_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
@@ -45,12 +42,12 @@ default_args = {
 }
 
 
-def is_allowed(file_name: str) -> bool:
-    return Path(file_name).suffix in ALLOWED_EXTENSIONS
-
-
-def is_image(file_name: str) -> bool:
-    return Path(file_name).suffix in IMAGE_EXTENSIONS
+def is_image(file: bytes) -> bool:
+    try:
+        Image.open(BytesIO(file))
+        return True
+    except IOError:
+        return False
 
 
 def extract_archived_files_to_bucket(**context):
@@ -80,37 +77,35 @@ def extract_archived_files_to_bucket(**context):
 
         # extract zip to cloud bucket
         folder_name = zip_file_name.rstrip('.zip')
-        file_to_upload = None
 
         for zipped_file_path in ZipFile(temp_file).namelist():
 
-            if is_image(zipped_file_path) and not is_allowed(zipped_file_path):
+            file_to_upload = ZipFile(temp_file).read(zipped_file_path)
+
+            if is_image(file_to_upload) and not zipped_file_path.endswith('.jpg'):
                 # convert image to jpeg
-                file_to_upload = BytesIO()
-                image = Image.open(BytesIO(ZipFile(temp_file).read(zipped_file_path)))
+                image = Image.open(BytesIO(file_to_upload))
                 try:
-                    image.save(file_to_upload, 'JPEG')
+                    temp = BytesIO()
+                    image.save(temp, 'JPEG')
                 except IOError:
                     image = image.convert('RGB')
-                    image.save(file_to_upload, 'JPEG')
-                file_to_upload = file_to_upload.getvalue()
+                    image.save(temp, 'JPEG')
+                file_to_upload = temp.getvalue()
                 zipped_file_path = re.sub(r'\.\w+$', '.jpg', zipped_file_path)
 
-            if is_allowed(zipped_file_path):
-                s3_key = '%s/%s' % (folder_name, zipped_file_path)
-                if not file_to_upload:
-                    file_to_upload = ZipFile(temp_file).read(zipped_file_path)
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=s3_key,
-                    Body=file_to_upload
-                )
-                logger.info(
-                    '%s uploaded to %s/%s',
-                    zipped_file_path,
-                    DESTINATION_BUCKET,
-                    folder_name
-                )
+            s3_key = '%s/%s' % (folder_name, zipped_file_path)
+            s3.put_object(
+                Bucket=DESTINATION_BUCKET,
+                Key=s3_key,
+                Body=file_to_upload
+            )
+            logger.info(
+                '%s uploaded to %s/%s',
+                zipped_file_path,
+                DESTINATION_BUCKET,
+                folder_name
+            )
 
         # check if expected article in zip file
         matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
