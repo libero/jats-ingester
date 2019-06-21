@@ -1,1 +1,2 @@
 apache-airflow[postgres, s3, celery]==1.10.3
+Pillow==6.0.0

@@ -19,6 +19,14 @@ def test_extract_archived_files_to_bucket(context, s3_client):
     assert result == 'elife-00666-vor-r1/elife-00666.xml'
 
 
+def test_extract_archived_files_to_bucket_converts_and_uploads_images(context, s3_client):
+    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
+    result = extract_archived_files_to_bucket(**context)
+    assert result == 'elife-36842-vor-r3/elife-36842.xml'
+    # elife-36842-fig1.tif should now be a .jpg
+    assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
+
+
 def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     extract_archived_files_to_bucket(**context)
@@ -59,14 +67,14 @@ def test_extract_archived_files_to_bucket_raises_exception_when_file_not_passed_
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
     # populate expected return value of previous task
-    file_name = '/elife-00666-vor-r1/elife-00666.xml'
+    file_name = '/elife-36842-vor-r3/elife-36842.xml'
     ti = context['dag_run'].get_task_instances()[0]
     ti.xcom_push(key='return_value', value=file_name)
 
     from dags import process_elife_zip_dag as pezd
     test_url = 'http://test-url.org'
     pezd.SERVICE_URL = test_url
-    session = requests_mock.put('%s/items/00666/versions/1' %  test_url)
+    session = requests_mock.put('%s/items/36842/versions/1' %  test_url)
 
     wrap_article_in_libero_xml_and_send_to_service(**context)
 
@@ -77,7 +85,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
 
     article_id = xml.xpath('//libero:item/libero:meta/libero:id',
                            namespaces=namespaces)[0]
-    assert article_id.text == '00666'
+    assert article_id.text == '36842'
 
     service_name = configuration.conf.get('libero', 'service_name')
     assert service_name is not None
@@ -90,6 +98,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     assert article is not None
     assert len(article.getchildren()) > 0
     assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
+    assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype!="jpeg"]')) == 0
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception(context):
