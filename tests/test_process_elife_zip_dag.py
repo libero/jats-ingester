@@ -82,6 +82,8 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_clien
 def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     update_tiff_references_to_jpeg_in_article(**context)
+    assert 'elife-36842-vor-r3/elife-36842-original.xml' in s3_client.uploaded_files
+
     xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
