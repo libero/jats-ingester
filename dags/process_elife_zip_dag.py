@@ -102,10 +102,10 @@ def extract_archived_files_to_bucket(**context):
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
     prefix = zip_file_name.replace('.zip', '/')
+    s3 = get_aws_connection('s3')
     for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
         if key.endswith('.tif'):
             with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
-                s3 = get_aws_connection('s3')
                 s3.download_fileobj(
                     Bucket=DESTINATION_BUCKET,
                     Key=key,
