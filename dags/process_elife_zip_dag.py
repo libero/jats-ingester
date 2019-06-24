@@ -49,8 +49,7 @@ def get_expected_elife_article_name(file_name: str) -> str:
     error_message = ('%s is malformed. Expected archive name to start with '
                      'any number/character, hyphen, any number/character (%s)'
                      'example: name-id.extension' % (file_name, pattern))
-    assert article_name and file_name.startswith(
-        article_name.group()), error_message
+    assert article_name and file_name.startswith(article_name.group()), error_message
     return article_name.group() + '.xml'
 
 
