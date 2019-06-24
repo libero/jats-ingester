@@ -10,6 +10,7 @@ from dags.process_elife_zip_dag import (
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
     get_expected_elife_article_name,
+    strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
     wrap_article_in_libero_xml_and_send_to_service
 )
@@ -80,14 +81,41 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_clien
         assert expected_file in s3_client.uploaded_files
 
 
-def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
+def test_update_tiff_references_to_jpeg_in_articles_with_article_with_tiff_references(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     assert return_value == 'elife-36842-vor-r3/elife-36842-tiff_to_jpeg.xml'
+    assert len(s3_client.uploaded_files) == 1
 
     xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
+
+
+def test_update_tiff_references_to_jpeg_in_articles_with_article_without_tiff_references(context, s3_client):
+    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
+    return_value = update_tiff_references_to_jpeg_in_article(**context)
+    assert return_value == 'elife-00666-vor-r1/elife-00666.xml'
+    assert len(s3_client.uploaded_files) == 0
+
+
+def test_strip_related_article_tags_from_article_xml_with_article_with_related_article_tag(context, s3_client):
+    file = 'elife-36842-vor-r3/elife-36842.xml'
+    add_return_value_from_previous_task(return_value=file, context=context)
+    return_value = strip_related_article_tags_from_article_xml(**context)
+    assert return_value == 'elife-36842-vor-r3/elife-36842-remove_related_article.xml'
+    assert len(s3_client.uploaded_files) == 1
+
+    xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
+    assert len(xml.xpath('//related-article')) == 0
+
+
+def test_strip_related_article_tags_from_article_xml_with_article_without_related_article_tag(context, s3_client):
+    file = 'elife-00666-vor-r1/elife-00666.xml'
+    add_return_value_from_previous_task(return_value=file, context=context)
+    return_value = strip_related_article_tags_from_article_xml(**context)
+    assert return_value == 'elife-00666-vor-r1/elife-00666.xml'
+    assert len(s3_client.uploaded_files) == 0
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):

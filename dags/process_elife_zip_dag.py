@@ -57,6 +57,15 @@ def get_expected_elife_article_name(file_name: str) -> str:
     return article_name.group() + '.xml'
 
 
+def get_article_s3_key_from_previous_task(context: dict) -> str:
+    s3_key = get_return_value_from_previous_task(context)
+    logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
+    previous_task = get_previous_task_name(context)
+    message = 'article s3 key was not passed from task %s' % previous_task
+    assert s3_key and isinstance(s3_key, str), message
+    return s3_key
+
+
 def extract_archived_files_to_bucket(**context):
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
@@ -85,12 +94,7 @@ def extract_archived_files_to_bucket(**context):
                     Key=s3_key,
                     Body=temp_unzipped_file
                 )
-                logger.info(
-                    '%s uploaded to %s/%s',
-                    zipped_file_path,
-                    DESTINATION_BUCKET,
-                    folder_name
-                )
+                logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
 
         # check if expected article in zip file
         if not [fn for fn in ZipFile(temp_zip_file).namelist() if article_name in fn]:
@@ -132,7 +136,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
                 logger.info('%s uploaded to %s',key, DESTINATION_BUCKET)
 
 
-def update_tiff_references_to_jpeg_in_article(**context):
+def update_tiff_references_to_jpeg_in_article(**context) -> str:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
     folder_name = zip_file_name.replace('.zip', '/')
@@ -156,17 +160,38 @@ def update_tiff_references_to_jpeg_in_article(**context):
             Key=s3_key,
             Body=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
         )
-        logger.info('%s uploaded to %s/%s', s3_key, DESTINATION_BUCKET, folder_name)
+        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
+
+    return s3_key
+
+
+def strip_related_article_tags_from_article_xml(**context) -> str:
+    s3_key = get_article_s3_key_from_previous_task(context)
+
+    s3 = get_aws_connection('s3')
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+    article_xml = etree.parse(BytesIO(response['Body'].read()))
+
+    matches = article_xml.xpath('//related-article')
+    if matches:
+        for element in matches:
+            element.getparent().remove(element)
+
+        # upload modified document
+        s3_key = s3_key.replace('.xml', '-remove_related_article.xml')
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=s3_key,
+            Body=etree.tostring(article_xml, xml_declaration=True,
+                                encoding='UTF-8')
+        )
+        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
 
     return s3_key
 
 
 def wrap_article_in_libero_xml_and_send_to_service(**context):
-    s3_key = get_return_value_from_previous_task(context)
-    logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
-    previous_task = get_previous_task_name(context)
-    message = 'article s3 key was not passed from task %s' % previous_task
-    assert s3_key and isinstance(s3_key, str), message
+    s3_key = get_article_s3_key_from_previous_task(context)
 
     s3 = get_aws_connection('s3')
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
@@ -237,6 +262,13 @@ update_tiff_references = python_operator.PythonOperator(
     dag=dag
 )
 
+strip_related_article_tags = python_operator.PythonOperator(
+    task_id='strip_related_article_tags_from_article_xml',
+    provide_context=True,
+    python_callable=strip_related_article_tags_from_article_xml,
+    dag=dag
+)
+
 wrap_article = python_operator.PythonOperator(
     task_id='wrap_article_in_libero_xml_and_send_to_service',
     provide_context=True,
@@ -244,6 +276,8 @@ wrap_article = python_operator.PythonOperator(
     dag=dag
 )
 
+# set task run order
 extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
-update_tiff_references.set_downstream(wrap_article)
+update_tiff_references.set_downstream(strip_related_article_tags)
+strip_related_article_tags.set_downstream(wrap_article)
