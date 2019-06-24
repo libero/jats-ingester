@@ -14,6 +14,7 @@ from dags.process_elife_zip_dag import (
     wrap_article_in_libero_xml_and_send_to_service
 )
 from tests.assets import get_asset
+from tests.helpers import add_return_value_from_previous_task
 
 
 @pytest.mark.parametrize('archive_name, expected', [
@@ -81,8 +82,8 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_clien
 
 def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
-    update_tiff_references_to_jpeg_in_article(**context)
-    assert 'elife-36842-vor-r3/elife-36842-original.xml' in s3_client.uploaded_files
+    return_value = update_tiff_references_to_jpeg_in_article(**context)
+    assert return_value == 'elife-36842-vor-r3/elife-36842-tiff_to_jpeg.xml'
 
     xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
@@ -90,12 +91,14 @@ def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
+    file_name = 'elife-36842.xml'
+    add_return_value_from_previous_task(return_value=file_name, context=context)
+
     from dags import process_elife_zip_dag as pezd
     test_url = 'http://test-url.org'
     pezd.SERVICE_URL = test_url
     session = requests_mock.put('%s/items/36842/versions/1' %  test_url)
 
-    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     wrap_article_in_libero_xml_and_send_to_service(**context)
 
     request_data = bytes(session.last_request.text, encoding='UTF-8')
@@ -120,8 +123,8 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception(context):
-    msg = 'path to xml document was not passed from task previous_task'
+def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_in_previous_task(context):
+    msg = 'article s3 key was not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
         assert str(error.value) == msg

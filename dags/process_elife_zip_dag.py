@@ -20,7 +20,11 @@ from lxml.builder import ElementMaker
 from PIL import Image
 
 from aws import get_aws_connection, list_bucket_keys_iter
-from task_helpers import get_file_name_passed_to_dag_run_conf_file
+from task_helpers import (
+    get_file_name_passed_to_dag_run_conf_file,
+    get_previous_task_name,
+    get_return_value_from_previous_task
+)
 
 BASE_URL = configuration.conf.get('libero', 'base_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
@@ -138,30 +142,32 @@ def update_tiff_references_to_jpeg_in_article(**context):
     article_bytes = BytesIO(response['Body'].read())
     article_xml = etree.parse(article_bytes)
 
-    # save a copy of the original xml document before making modifications
-    key = s3_key.replace('.xml', '-original.xml')
-    s3.put_object(Bucket=DESTINATION_BUCKET, Key=key, Body=article_bytes.getvalue())
-    logger.info('%s uploaded to %s/%s', key, DESTINATION_BUCKET, folder_name)
+    matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
+    if matches:
+        for element in matches:
+            href = '{http://www.w3.org/1999/xlink}href'
+            element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
+            element.attrib['mime-subtype'] = 'jpeg'
 
-    for element in article_xml.xpath(
-            '//*[@mimetype="image" and @mime-subtype="tiff"]'):
-        href = '{http://www.w3.org/1999/xlink}href'
-        element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
-        element.attrib['mime-subtype'] = 'jpeg'
+        # upload modified document
+        s3_key = s3_key.replace('.xml', '-tiff_to_jpeg.xml')
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=s3_key,
+            Body=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+        )
+        logger.info('%s uploaded to %s/%s', s3_key, DESTINATION_BUCKET, folder_name)
 
-    # upload modified document
-    s3.put_object(
-        Bucket=DESTINATION_BUCKET,
-        Key=s3_key,
-        Body=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    )
-    logger.info('%s uploaded to %s/%s', s3_key, DESTINATION_BUCKET, folder_name)
+    return s3_key
 
 
 def wrap_article_in_libero_xml_and_send_to_service(**context):
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
-    article_name = get_expected_elife_article_name(zip_file_name)
-    s3_key = zip_file_name.replace('.zip', '/') + article_name
+    s3_key = get_return_value_from_previous_task(**context)
+    logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
+    previous_task = get_previous_task_name(**context)
+    message = 'article s3 key was not passed from task %s' % previous_task
+    assert s3_key and isinstance(s3_key, str), message
+
     s3 = get_aws_connection('s3')
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
     article_xml = etree.parse(BytesIO(response['Body'].read()))
