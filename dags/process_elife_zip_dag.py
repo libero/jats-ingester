@@ -58,7 +58,7 @@ def get_expected_elife_article_name(file_name: str) -> str:
 
 
 def extract_archived_files_to_bucket(**context):
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
 
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
@@ -103,7 +103,7 @@ def extract_archived_files_to_bucket(**context):
 
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     prefix = zip_file_name.replace('.zip', '/')
 
     s3 = get_aws_connection('s3')
@@ -133,7 +133,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
 
 
 def update_tiff_references_to_jpeg_in_article(**context):
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
     folder_name = zip_file_name.replace('.zip', '/')
     s3_key = folder_name + article_name
@@ -162,9 +162,9 @@ def update_tiff_references_to_jpeg_in_article(**context):
 
 
 def wrap_article_in_libero_xml_and_send_to_service(**context):
-    s3_key = get_return_value_from_previous_task(**context)
+    s3_key = get_return_value_from_previous_task(context)
     logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
-    previous_task = get_previous_task_name(**context)
+    previous_task = get_previous_task_name(context)
     message = 'article s3 key was not passed from task %s' % previous_task
     assert s3_key and isinstance(s3_key, str), message
 
