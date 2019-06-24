@@ -71,15 +71,16 @@ def extract_archived_files_to_bucket(**context):
 
         # extract zip to cloud bucket
         for zipped_file_path in ZipFile(temp_zip_file).namelist():
-            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zipped_file:
-                temp_zipped_file.write(ZipFile(temp_zip_file).read(zipped_file_path))
-                temp_zipped_file.seek(0)
+            # extract zipped files to disk to avoid using too much memory
+            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
+                temp_unzipped_file.write(ZipFile(temp_zip_file).read(zipped_file_path))
+                temp_unzipped_file.seek(0)
 
                 s3_key = '%s/%s' % (folder_name, zipped_file_path)
                 s3.put_object(
                     Bucket=DESTINATION_BUCKET,
                     Key=s3_key,
-                    Body=temp_zipped_file
+                    Body=temp_unzipped_file
                 )
                 logger.info(
                     '%s uploaded to %s/%s',
