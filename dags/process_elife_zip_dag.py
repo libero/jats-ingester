@@ -102,7 +102,9 @@ def extract_archived_files_to_bucket(**context):
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
     prefix = zip_file_name.replace('.zip', '/')
+
     s3 = get_aws_connection('s3')
+
     for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
         if key.endswith('.tif'):
             with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
@@ -111,10 +113,13 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
                     Key=key,
                     Fileobj=temp_tiff_file
                 )
-                image = Image.open(temp_tiff_file)
-                output = image.convert('RGB')
+
+                # tiff images are typically RGBA
+                # PIL.JpegImagePlugin.RAWMODE contains modes that can be saved as jpeg
+                # In order to convert from tiff we have to remove the alpha channel
                 temp_jpeg = BytesIO()
-                output.save(temp_jpeg, 'JPEG')
+                Image.open(temp_tiff_file).convert(mode='RGB').save(temp_jpeg, format='JPEG')
+
                 key = re.sub(r'\.\w+$', '.jpg', key)
                 s3.put_object(
                     Bucket=DESTINATION_BUCKET,
