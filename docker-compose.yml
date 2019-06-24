@@ -95,4 +95,4 @@ services:
     entrypoint: ""
     volumes:
       - ./content-store.py:/airflow/content-store.py
-    command: python content-store.py
+    command: python /airflow/content-store.py
