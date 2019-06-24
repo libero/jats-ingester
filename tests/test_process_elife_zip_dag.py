@@ -1,36 +1,32 @@
 from io import BytesIO
-from pathlib import Path
 from xml.dom import XML_NAMESPACE
+from zipfile import ZipFile
 
 import pytest
 from airflow import configuration
 from lxml import etree
 
 from dags.process_elife_zip_dag import (
+    convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
-    wrap_article_in_libero_xml_and_send_to_service,
-    ALLOWED_EXTENSIONS
+    get_expected_elife_article_name,
+    update_tiff_references_to_jpeg_in_article,
+    wrap_article_in_libero_xml_and_send_to_service
 )
+from tests.assets import get_asset
+from tests.helpers import add_return_value_from_previous_task
 
 
-def test_extract_archived_files_to_bucket(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
-    result = extract_archived_files_to_bucket(**context)
-    assert result == 'elife-00666-vor-r1/elife-00666.xml'
-
-
-def test_extract_archived_files_to_bucket_converts_and_uploads_images(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
-    result = extract_archived_files_to_bucket(**context)
-    assert result == 'elife-36842-vor-r3/elife-36842.xml'
-    # elife-36842-fig1.tif should now be a .jpg
-    assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
-
-
-def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
-    extract_archived_files_to_bucket(**context)
-    assert all(Path(uf).suffix in ALLOWED_EXTENSIONS for uf in s3_client.uploaded_files)
+@pytest.mark.parametrize('archive_name, expected', [
+    ('elife-00666-vor-r1.zip', 'elife-00666.xml'),
+    ('elife-00666-vor-r1', 'elife-00666.xml'),
+    ('test-name', 'test-name.xml'),
+    ('test123-name456', 'test123-name456.xml'),
+    ('1test1-1name1', '1test1-1name1.xml'),
+])
+def test_get_expected_elife_article_name(archive_name, expected):
+    article_name = get_expected_elife_article_name(archive_name)
+    assert article_name == expected
 
 
 @pytest.mark.parametrize('name', [
@@ -40,14 +36,22 @@ def test_extract_archived_files_to_bucket_only_uploads_allowed_file_types(contex
     'test-!this.zip',
     'don\'t-do-this.zip'
 ])
-def test_extract_archived_files_to_bucket_raises_exception_if_zip_name_is_malformed(name, context):
-    context['dag_run'].conf = {'file': name}
+def test_get_expected_elife_article_name_raises_exception_if_zip_name_is_malformed(name):
     msg =('%s is malformed. Expected archive name to start with '
           'any number/character, hyphen, any number/character (%s)'
           'example: name-id.extension' % (name, r'^\w+-\w+'))
     with pytest.raises(AssertionError) as error:
-        extract_archived_files_to_bucket(**context)
+        get_expected_elife_article_name(name)
         assert str(error.value) == msg
+
+
+def test_extract_archived_files_to_bucket(context, s3_client):
+    file_name = 'elife-00666-vor-r1.zip'
+    context['dag_run'].conf = {'file': file_name}
+    extract_archived_files_to_bucket(**context)
+    for zipped_file in ZipFile(get_asset(file_name)).namelist():
+        expected_file = '%s/%s' % (file_name.replace('.zip', ''), zipped_file)
+        assert expected_file in s3_client.uploaded_files
 
 
 def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_zip(context, mocker, s3_client):
@@ -58,18 +62,37 @@ def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_z
         assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
-def test_extract_archived_files_to_bucket_raises_exception_when_file_not_passed_from_previous_task(context):
-    msg = '%s triggered without a file name passed to conf' % context['dag_run'].dag_id
-    with pytest.raises(AssertionError) as error:
-        extract_archived_files_to_bucket(**context)
-        assert str(error.value) == msg
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_client, mocker):
+    file_name = 'elife-36842-vor-r3.zip'
+    folder_name = file_name.replace('.zip', '/')
+    context['dag_run'].conf = {'file': file_name}
+    keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
+    keys.append(folder_name)
+    mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
+
+    convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
+    zipped_files = [fn.replace('.tif', '.jpg')
+                    for fn in ZipFile(get_asset(file_name)).namelist()
+                    if fn.endswith('.tif')]
+    assert zipped_files
+    for zipped_file in zipped_files:
+        expected_file = file_name.replace('.zip', '/') + zipped_file
+        assert expected_file in s3_client.uploaded_files
+
+
+def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
+    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
+    return_value = update_tiff_references_to_jpeg_in_article(**context)
+    assert return_value == 'elife-36842-vor-r3/elife-36842-tiff_to_jpeg.xml'
+
+    xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
+    assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
+    assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
-    # populate expected return value of previous task
-    file_name = '/elife-36842-vor-r3/elife-36842.xml'
-    ti = context['dag_run'].get_task_instances()[0]
-    ti.xcom_push(key='return_value', value=file_name)
+    file_name = 'elife-36842.xml'
+    add_return_value_from_previous_task(return_value=file_name, context=context)
 
     from dags import process_elife_zip_dag as pezd
     test_url = 'http://test-url.org'
@@ -98,11 +121,10 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     assert article is not None
     assert len(article.getchildren()) > 0
     assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
-    assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype!="jpeg"]')) == 0
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception(context):
-    msg = 'path to xml document was not passed from task previous_task'
+def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_in_previous_task(context):
+    msg = 'article s3 key was not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
         assert str(error.value) == msg

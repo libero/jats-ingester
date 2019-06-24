@@ -19,17 +19,19 @@ from lxml import etree
 from lxml.builder import ElementMaker
 from PIL import Image
 
-from aws import get_aws_connection
-from task_helpers import get_previous_task_name
-
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.pdf', '.xml'}  # only upload these file types
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
+from aws import get_aws_connection, list_bucket_keys_iter
+from task_helpers import (
+    get_file_name_passed_to_dag_run_conf_file,
+    get_previous_task_name,
+    get_return_value_from_previous_task
+)
 
 BASE_URL = configuration.conf.get('libero', 'base_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
+TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory') or None
 
 logger = logging.getLogger(__name__)
 
@@ -45,65 +47,43 @@ default_args = {
 }
 
 
-def is_allowed(file_name: str) -> bool:
-    return Path(file_name).suffix in ALLOWED_EXTENSIONS
-
-
-def is_image(file_name: str) -> bool:
-    return Path(file_name).suffix in IMAGE_EXTENSIONS
+def get_expected_elife_article_name(file_name: str) -> str:
+    pattern = r'^\w+-\w+'
+    article_name = re.search(pattern, file_name)
+    error_message = ('%s is malformed. Expected archive name to start with '
+                     'any number/character, hyphen, any number/character (%s)'
+                     'example: name-id.extension' % (file_name, pattern))
+    assert article_name and file_name.startswith(article_name.group()), error_message
+    return article_name.group() + '.xml'
 
 
 def extract_archived_files_to_bucket(**context):
-    # get file name passed from trigger
-    dag_run = context['dag_run']
-    conf = dag_run.conf or {}
-    zip_file_name = conf.get('file')
-    logger.info('FILE NAME PASSED FROM TRIGGER= %s', zip_file_name)
-    message = '%s triggered without a file name passed to conf' % dag_run.dag_id
-    assert zip_file_name, message
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    article_name = get_expected_elife_article_name(zip_file_name)
 
-    # get/validate article name
-    pattern = r'^\w+-\w+'
-    article_name = re.search(pattern, zip_file_name)
-    error_message = ('%s is malformed. Expected archive name to start with '
-                     'any number/character, hyphen, any number/character (%s)'
-                     'example: name-id.extension' % (zip_file_name, pattern))
-    assert article_name and zip_file_name.startswith(article_name.group()), error_message
-    article_name = article_name.group() + '.xml'
-
-    # temporary files are securely stored on disk and automatically deleted when closed
-    with TemporaryFile() as temp_file:
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_aws_connection('s3')
-        # store downloaded file in temp file
-        s3.download_fileobj(SOURCE_BUCKET, zip_file_name, temp_file)
-        logger.info('ZIPPED FILES= %s', ZipFile(temp_file).namelist())
+        s3.download_fileobj(
+            Bucket=SOURCE_BUCKET,
+            Key=zip_file_name,
+            Fileobj=temp_zip_file
+        )
+        logger.info('ZIPPED FILES= %s', ZipFile(temp_zip_file).namelist())
+
+        folder_name = zip_file_name.replace('.zip', '/')
 
         # extract zip to cloud bucket
-        folder_name = zip_file_name.rstrip('.zip')
-        file_to_upload = None
+        for zipped_file_path in ZipFile(temp_zip_file).namelist():
+            # extract zipped files to disk to avoid using too much memory
+            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
+                temp_unzipped_file.write(ZipFile(temp_zip_file).read(zipped_file_path))
+                temp_unzipped_file.seek(0)
 
-        for zipped_file_path in ZipFile(temp_file).namelist():
-
-            if is_image(zipped_file_path) and not is_allowed(zipped_file_path):
-                # convert image to jpeg
-                file_to_upload = BytesIO()
-                image = Image.open(BytesIO(ZipFile(temp_file).read(zipped_file_path)))
-                try:
-                    image.save(file_to_upload, 'JPEG')
-                except IOError:
-                    image = image.convert('RGB')
-                    image.save(file_to_upload, 'JPEG')
-                file_to_upload = file_to_upload.getvalue()
-                zipped_file_path = re.sub(r'\.\w+$', '.jpg', zipped_file_path)
-
-            if is_allowed(zipped_file_path):
-                s3_key = '%s/%s' % (folder_name, zipped_file_path)
-                if not file_to_upload:
-                    file_to_upload = ZipFile(temp_file).read(zipped_file_path)
+                s3_key = folder_name + zipped_file_path
                 s3.put_object(
                     Bucket=DESTINATION_BUCKET,
                     Key=s3_key,
-                    Body=file_to_upload
+                    Body=temp_unzipped_file
                 )
                 logger.info(
                     '%s uploaded to %s/%s',
@@ -113,26 +93,83 @@ def extract_archived_files_to_bucket(**context):
                 )
 
         # check if expected article in zip file
-        matches = [fn for fn in ZipFile(temp_file).namelist() if article_name in fn]
-        if not matches:
+        if not [fn for fn in ZipFile(temp_zip_file).namelist() if article_name in fn]:
             error_message = '%s not in %s: %s' % (article_name, zip_file_name,
-                                                  ZipFile(temp_file).namelist())
+                                                  ZipFile(temp_zip_file).namelist())
             raise FileNotFoundError(error_message)
 
     # pass article cloud bucket key to next task
     return '%s/%s' % (folder_name, article_name)
 
 
-def wrap_article_in_libero_xml_and_send_to_service(**context):
-    # get xml path passed from previous task
-    previous_task = get_previous_task_name(**context)
-    xml_path = context['task_instance'].xcom_pull(task_ids=previous_task)
-    logger.info('XML PATH PASSED FROM PREVIOUS TASK= %s', xml_path)
-    message = 'path to xml document was not passed from task %s' % previous_task
-    assert xml_path is not None, message
+def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    prefix = zip_file_name.replace('.zip', '/')
 
     s3 = get_aws_connection('s3')
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=xml_path)
+
+    for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
+        if key.endswith('.tif'):
+            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
+                s3.download_fileobj(
+                    Bucket=DESTINATION_BUCKET,
+                    Key=key,
+                    Fileobj=temp_tiff_file
+                )
+
+                # tiff images are typically RGBA
+                # PIL.JpegImagePlugin.RAWMODE contains modes that can be saved as jpeg
+                # In order to convert from tiff we have to remove the alpha channel
+                temp_jpeg = BytesIO()
+                Image.open(temp_tiff_file).convert(mode='RGB').save(temp_jpeg, format='JPEG')
+
+                key = re.sub(r'\.\w+$', '.jpg', key)
+                s3.put_object(
+                    Bucket=DESTINATION_BUCKET,
+                    Key=key,
+                    Body=temp_jpeg.getvalue()
+                )
+                logger.info('%s uploaded to %s',key, DESTINATION_BUCKET)
+
+
+def update_tiff_references_to_jpeg_in_article(**context):
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(**context)
+    article_name = get_expected_elife_article_name(zip_file_name)
+    folder_name = zip_file_name.replace('.zip', '/')
+    s3_key = folder_name + article_name
+    s3 = get_aws_connection('s3')
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+    article_bytes = BytesIO(response['Body'].read())
+    article_xml = etree.parse(article_bytes)
+
+    matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
+    if matches:
+        for element in matches:
+            href = '{http://www.w3.org/1999/xlink}href'
+            element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
+            element.attrib['mime-subtype'] = 'jpeg'
+
+        # upload modified document
+        s3_key = s3_key.replace('.xml', '-tiff_to_jpeg.xml')
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=s3_key,
+            Body=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+        )
+        logger.info('%s uploaded to %s/%s', s3_key, DESTINATION_BUCKET, folder_name)
+
+    return s3_key
+
+
+def wrap_article_in_libero_xml_and_send_to_service(**context):
+    s3_key = get_return_value_from_previous_task(**context)
+    logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
+    previous_task = get_previous_task_name(**context)
+    message = 'article s3 key was not passed from task %s' % previous_task
+    assert s3_key and isinstance(s3_key, str), message
+
+    s3 = get_aws_connection('s3')
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
     article_xml = etree.parse(BytesIO(response['Body'].read()))
 
     # get article id
@@ -140,20 +177,14 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
         '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
     )[0].text
 
-    # update image references to .jpg
-    root = article_xml.getroot()
-    for element in root.xpath('//*[@mimetype="image" and @mime-subtype!="jpeg"]'):
-        href = '{http://www.w3.org/1999/xlink}href'
-        element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
-        element.attrib['mime-subtype'] = 'jpeg'
-
     # add jats prefix to jats tags
     for element in article_xml.iter():
         if not element.prefix:
             element.tag = '{http://jats.nlm.nih.gov}%s' % element.tag
 
     # add xml:base attribute to article element
-    key = Path(xml_path).parent.stem
+    root = article_xml.getroot()
+    key = Path(s3_key).parent.stem
     root.set(
         '{%s}base' % XML_NAMESPACE,
         '%s/%s/' % (BASE_URL, key)
@@ -185,18 +216,34 @@ dag = DAG('process_elife_zip_dag',
           default_args=default_args,
           schedule_interval=None)
 
-task_1 = python_operator.PythonOperator(
+extract_zip_files = python_operator.PythonOperator(
     task_id='extract_archived_files_to_bucket',
     provide_context=True,
     python_callable=extract_archived_files_to_bucket,
     dag=dag
 )
 
-task_2 = python_operator.PythonOperator(
+convert_tiff_images = python_operator.PythonOperator(
+    task_id='convert_tiff_images_in_expanded_bucket_to_jpeg_images',
+    provide_context=True,
+    python_callable=convert_tiff_images_in_expanded_bucket_to_jpeg_images,
+    dag=dag
+)
+
+update_tiff_references = python_operator.PythonOperator(
+    task_id='update_tiff_references_to_jpeg_in_article',
+    provide_context=True,
+    python_callable=update_tiff_references_to_jpeg_in_article,
+    dag=dag
+)
+
+wrap_article = python_operator.PythonOperator(
     task_id='wrap_article_in_libero_xml_and_send_to_service',
     provide_context=True,
     python_callable=wrap_article_in_libero_xml_and_send_to_service,
     dag=dag
 )
 
-task_1.set_downstream(task_2)
+extract_zip_files.set_downstream(convert_tiff_images)
+convert_tiff_images.set_downstream(update_tiff_references)
+update_tiff_references.set_downstream(wrap_article)

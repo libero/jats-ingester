@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 from tests.assets import get_asset
 
@@ -9,23 +10,33 @@ class s3ClientMock:
     def __init__(self, *args, **kwargs):
         self.downloaded_files = []
         self.uploaded_files = []
+        self.last_uploaded_file_bytes = None
 
     def __call__(self, *args, **kwargs):
         return self
 
-    def download_fileobj(self, bucket, key, file_obj):
-        self.downloaded_files.append(key)
-        file_obj.write(get_asset(key))
+    def _read_bytes(self, file_name):
+        try:
+            return get_asset(file_name).read_bytes()
+        except FileNotFoundError:
+            key = str(Path(file_name).parent) + '.zip'
+            return ZipFile(get_asset(key)).read(Path(file_name).name)
 
-    def upload_fileobj(self, file_obj, bucket, key):
-        self.uploaded_files.append(key)
+    def download_fileobj(self, *args, **kwargs):
+        self.downloaded_files.append(kwargs['Key'])
+        kwargs['Fileobj'].write(self._read_bytes(kwargs['Key']))
+
+    def upload_fileobj(self, *args, **kwargs):
+        self.uploaded_files.append(kwargs['Key'])
+        self.last_uploaded_file_bytes = kwargs['Fileobj'].read()
 
     def get_object(self, *args, **kwargs):
         self.downloaded_files.append(kwargs['Key'])
-        return {'Body': BytesIO(get_asset(Path(kwargs['Key']).name))}
+        return {'Body': BytesIO(self._read_bytes(kwargs['Key']))}
 
     def put_object(self, *args, **kwargs):
         self.uploaded_files.append(kwargs['Key'])
+        self.last_uploaded_file_bytes = kwargs['Body']
 
     def get_paginator(self, *args):
         return self
