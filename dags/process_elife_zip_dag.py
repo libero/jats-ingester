@@ -17,6 +17,7 @@ from airflow.operators import python_operator
 from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
+from lxml.etree import ElementTree
 from PIL import Image
 
 from aws import get_aws_connection, list_bucket_keys_iter
@@ -57,13 +58,12 @@ def get_expected_elife_article_name(file_name: str) -> str:
     return article_name.group() + '.xml'
 
 
-def get_article_s3_key_from_previous_task(context: dict) -> str:
-    s3_key = get_return_value_from_previous_task(context)
-    logger.info('ARTICLE S3 KEY PASSED FROM PREVIOUS TASK= %s', s3_key)
+def get_article_from_previous_task(context: dict) -> ElementTree:
+    article_bytes = get_return_value_from_previous_task(context)
     previous_task = get_previous_task_name(context)
-    message = 'article s3 key was not passed from task %s' % previous_task
-    assert s3_key and isinstance(s3_key, str), message
-    return s3_key
+    message = 'Article bytes were not passed from task %s' % previous_task
+    assert article_bytes and isinstance(article_bytes, bytes), message
+    return etree.parse(BytesIO(article_bytes))
 
 
 def extract_archived_files_to_bucket(**context):
@@ -136,16 +136,8 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
                 logger.info('%s uploaded to %s',key, DESTINATION_BUCKET)
 
 
-def update_tiff_references_to_jpeg_in_article(**context) -> str:
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    article_name = get_expected_elife_article_name(zip_file_name)
-    folder_name = zip_file_name.replace('.zip', '/')
-    s3_key = folder_name + article_name
-    s3 = get_aws_connection('s3')
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
-    article_bytes = BytesIO(response['Body'].read())
-    article_xml = etree.parse(article_bytes)
-
+def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
+    article_xml = get_article_from_previous_task(context)
     matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
     if matches:
         for element in matches:
@@ -153,49 +145,21 @@ def update_tiff_references_to_jpeg_in_article(**context) -> str:
             element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
             element.attrib['mime-subtype'] = 'jpeg'
 
-        # upload modified document
-        s3_key = s3_key.replace('.xml', '-tiff_to_jpeg.xml')
-        s3.put_object(
-            Bucket=DESTINATION_BUCKET,
-            Key=s3_key,
-            Body=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-        )
-        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
-
-    return s3_key
+    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def strip_related_article_tags_from_article_xml(**context) -> str:
-    s3_key = get_article_s3_key_from_previous_task(context)
-
-    s3 = get_aws_connection('s3')
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
-    article_xml = etree.parse(BytesIO(response['Body'].read()))
-
+def strip_related_article_tags_from_article_xml(**context) -> bytes:
+    article_xml = get_article_from_previous_task(context)
     matches = article_xml.xpath('//related-article')
     if matches:
         for element in matches:
             element.getparent().remove(element)
 
-        # upload modified document
-        s3_key = s3_key.replace('.xml', '-remove_related_article.xml')
-        s3.put_object(
-            Bucket=DESTINATION_BUCKET,
-            Key=s3_key,
-            Body=etree.tostring(article_xml, xml_declaration=True,
-                                encoding='UTF-8')
-        )
-        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
-
-    return s3_key
+    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def wrap_article_in_libero_xml_and_send_to_service(**context):
-    s3_key = get_article_s3_key_from_previous_task(context)
-
-    s3 = get_aws_connection('s3')
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
-    article_xml = etree.parse(BytesIO(response['Body'].read()))
+def wrap_article_in_libero_xml_and_send_to_service(**context) -> None:
+    article_xml = get_article_from_previous_task(context)
 
     # get article id
     article_id = article_xml.xpath(
@@ -209,7 +173,7 @@ def wrap_article_in_libero_xml_and_send_to_service(**context):
 
     # add xml:base attribute to article element
     root = article_xml.getroot()
-    key = Path(s3_key).parent.stem
+    key = get_file_name_passed_to_dag_run_conf_file(context).replace('zip', '')
     root.set(
         '{%s}base' % XML_NAMESPACE,
         '%s/%s/' % (BASE_URL, key)
