@@ -136,7 +136,14 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
 
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
-    article_xml = get_article_from_previous_task(context)
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
+    article_name = get_expected_elife_article_name(zip_file_name)
+    folder_name = zip_file_name.replace('.zip', '/')
+    s3_key = folder_name + article_name
+    s3 = get_aws_connection('s3')
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+    article_bytes = BytesIO(response['Body'].read())
+    article_xml = etree.parse(article_bytes)
     matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
     if matches:
         for element in matches:

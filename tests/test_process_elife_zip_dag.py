@@ -120,16 +120,14 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_wit
     assert len(s3_client.uploaded_files) == 0
 
 
-def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_references(context):
+def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_references(context, s3_client):
     # setup
-    test_asset_path = str(get_asset('elife-36842.xml').absolute())
-    article_xml = etree.parse(test_asset_path)
+    zip_file_name = 'elife-36842-vor-r3.zip'
+    context['dag_run'].conf = {'file': zip_file_name}
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-36842.xml')))
     assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 25
     assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 0
-    add_return_value_from_previous_task(
-        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
-        context=context
-    )
     # test
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     xml = etree.parse(BytesIO(return_value))
@@ -137,11 +135,15 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_refe
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
 
 
-def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_references(context):
+def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_references(context, s3_client):
     # setup
-    test_asset_path = str(get_asset('elife-00666.xml').absolute())
-    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    zip_file_name = 'elife-00666-vor-r1.zip'
+    context['dag_run'].conf = {'file': zip_file_name}
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
+    assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
     # test
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     assert return_value == article_xml
@@ -165,9 +167,12 @@ def test_strip_related_article_tags_from_article_xml_using_article_with_related_
 def test_strip_related_article_tags_from_article_xml_using_article_without_related_article_tag(context):
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
-    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
+    article_xml = etree.parse(test_asset_path)
+    assert len(article_xml.xpath('//related-article')) == 0
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(article_xml, context=context)
     # test
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
     return_value = strip_related_article_tags_from_article_xml(**context)
     assert return_value == article_xml
 
