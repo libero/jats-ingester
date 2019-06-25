@@ -102,16 +102,8 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_wit
 
     # test
     convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
-
-    # recreate expected uploaded file names
-    zipped_files = [fn.replace('.tif', '.jpg')
-                    for fn in ZipFile(get_asset(file_name)).namelist()
-                    if fn.endswith('.tif')]
-    assert zipped_files
-
-    for zipped_file in zipped_files:
-        expected_file = file_name.replace('.zip', '/') + zipped_file
-        assert expected_file in s3_client.uploaded_files
+    assert len(s3_client.uploaded_files) == 25
+    assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
 
 
 def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_without_tiff_images(context, s3_client, mocker):
