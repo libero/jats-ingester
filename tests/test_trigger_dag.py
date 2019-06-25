@@ -66,4 +66,4 @@ def test_run_dag_for_each_file_raises_exception(context):
     msg = 'None type passed from previous task. Accepted types are set, list or tuple.'
     with pytest.raises(AssertionError) as error:
         run_dag_for_each_file(None, **context)
-        assert str(error.value) == msg
+    assert str(error.value) == msg

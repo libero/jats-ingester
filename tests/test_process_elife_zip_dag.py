@@ -45,7 +45,7 @@ def test_get_expected_elife_article_name_raises_exception_if_zip_name_is_malform
           'example: name-id.extension' % (name, r'^\w+-\w+'))
     with pytest.raises(AssertionError) as error:
         get_expected_elife_article_name(name)
-        assert str(error.value) == msg
+    assert str(error.value) == msg
 
 
 def test_get_article_from_previous_task(context):
@@ -66,7 +66,7 @@ def test_get_article_from_previous_task_raises_exception(return_value, context):
     # setup
     with pytest.raises(AssertionError) as error:
         get_article_from_previous_task(context)
-        assert str(error.value) == message
+    assert str(error.value) == message
 
 
 def test_extract_archived_files_to_bucket(context, s3_client):
@@ -87,7 +87,7 @@ def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_z
     # test
     with pytest.raises(FileNotFoundError) as error:
         extract_archived_files_to_bucket(**context)
-        assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
+    assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
 def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(context, s3_client, mocker):
@@ -220,7 +220,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_by_previous_task(context):
-    msg = 'article s3 key was not passed from task previous_task'
+    msg = 'Article bytes were not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
-        assert str(error.value) == msg
+    assert str(error.value) == msg

@@ -43,4 +43,4 @@ def test_get_file_name_passed_to_dag_run_conf_file_raises_exception_if_file_name
     error_message = 'conf={\'file\': <file_name>} not passed to %s' % context['dag_run'].dag_id
     with pytest.raises(AssertionError) as error:
         get_file_name_passed_to_dag_run_conf_file(context)
-        assert str(error.value) == error_message
+    assert str(error.value) == error_message
