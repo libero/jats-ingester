@@ -37,7 +37,7 @@ default_args = {
 }
 
 
-def get_zip_files_to_process():
+def get_zip_files_to_process() -> set:
     """
     Gets all zip file names from source bucket and all 'directory'
     names of extracted zip files from the destination bucket, stored in separate
@@ -53,8 +53,8 @@ def get_zip_files_to_process():
     return incoming.difference(expanded)
 
 
-def run_dag_for_each_file(dag_to_trigger, **context):
-    file_names = get_return_value_from_previous_task(**context)
+def run_dag_for_each_file(dag_to_trigger, **context) -> None:
+    file_names = get_return_value_from_previous_task(context)
     message = 'None type passed from previous task. Accepted types are set, list or tuple.'
     assert file_names is not None, message
 

@@ -1,3 +1,4 @@
+import itertools
 from io import BytesIO
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -9,7 +10,9 @@ from lxml import etree
 from dags.process_elife_zip_dag import (
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
+    get_article_from_previous_task,
     get_expected_elife_article_name,
+    strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
     wrap_article_in_libero_xml_and_send_to_service
 )
@@ -42,12 +45,35 @@ def test_get_expected_elife_article_name_raises_exception_if_zip_name_is_malform
           'example: name-id.extension' % (name, r'^\w+-\w+'))
     with pytest.raises(AssertionError) as error:
         get_expected_elife_article_name(name)
-        assert str(error.value) == msg
+    assert str(error.value) == msg
+
+
+def test_get_article_from_previous_task(context):
+    # setup
+    test_asset_path = str(get_asset('elife-00666.xml').absolute())
+    article_xml = etree.tostring(etree.parse(test_asset_path))
+    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    # test
+    returned_value = get_article_from_previous_task(context)
+    assert etree.tostring(returned_value) == article_xml
+
+
+@pytest.mark.parametrize('return_value', [b'', '', None])
+def test_get_article_from_previous_task_raises_exception(return_value, context):
+    # setup
+    add_return_value_from_previous_task(return_value, context)
+    message = 'Article bytes were not passed from task previous_task'
+    # setup
+    with pytest.raises(AssertionError) as error:
+        get_article_from_previous_task(context)
+    assert str(error.value) == message
 
 
 def test_extract_archived_files_to_bucket(context, s3_client):
+    # setup
     file_name = 'elife-00666-vor-r1.zip'
     context['dag_run'].conf = {'file': file_name}
+    # test
     extract_archived_files_to_bucket(**context)
     for zipped_file in ZipFile(get_asset(file_name)).namelist():
         expected_file = '%s/%s' % (file_name.replace('.zip', ''), zipped_file)
@@ -55,50 +81,117 @@ def test_extract_archived_files_to_bucket(context, s3_client):
 
 
 def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_zip(context, mocker, s3_client):
+    # setup
     context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     mocker.patch('zipfile.ZipFile.namelist', return_value=[])
+    # test
     with pytest.raises(FileNotFoundError) as error:
         extract_archived_files_to_bucket(**context)
-        assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
+    assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
-def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_client, mocker):
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(context, s3_client, mocker):
+    # setup
     file_name = 'elife-36842-vor-r3.zip'
-    folder_name = file_name.replace('.zip', '/')
     context['dag_run'].conf = {'file': file_name}
+
+    folder_name = file_name.replace('.zip', '/')
     keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
-    keys.append(folder_name)
+    keys = itertools.chain(keys, [folder_name])
     mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
 
+    # test
     convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
-    zipped_files = [fn.replace('.tif', '.jpg')
-                    for fn in ZipFile(get_asset(file_name)).namelist()
-                    if fn.endswith('.tif')]
-    assert zipped_files
-    for zipped_file in zipped_files:
-        expected_file = file_name.replace('.zip', '/') + zipped_file
-        assert expected_file in s3_client.uploaded_files
+    assert len(s3_client.uploaded_files) == 25
+    assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
 
 
-def test_update_tiff_references_to_jpeg_in_articles(context, s3_client):
-    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_without_tiff_images(context, s3_client, mocker):
+    # setup
+    file_name = 'elife-00666-vor-r1.zip'
+    context['dag_run'].conf = {'file': file_name}
+
+    folder_name = file_name.replace('.zip', '/')
+    keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
+    keys = itertools.chain(keys, [folder_name])
+    mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
+    # test
+    convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
+    assert len(s3_client.uploaded_files) == 0
+
+
+def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_references(context, s3_client):
+    # setup
+    zip_file_name = 'elife-36842-vor-r3.zip'
+    context['dag_run'].conf = {'file': zip_file_name}
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-36842.xml')))
+    assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 25
+    assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 0
+    # test
     return_value = update_tiff_references_to_jpeg_in_article(**context)
-    assert return_value == 'elife-36842-vor-r3/elife-36842-tiff_to_jpeg.xml'
-
-    xml = etree.parse(BytesIO(s3_client.last_uploaded_file_bytes))
+    xml = etree.parse(BytesIO(return_value))
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
 
 
+def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_references(context, s3_client):
+    # setup
+    zip_file_name = 'elife-00666-vor-r1.zip'
+    context['dag_run'].conf = {'file': zip_file_name}
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
+    assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    # test
+    return_value = update_tiff_references_to_jpeg_in_article(**context)
+    assert return_value == article_xml
+
+
+def test_strip_related_article_tags_from_article_xml_using_article_with_related_article_tag(context):
+    # setup
+    test_asset_path = str(get_asset('elife-36842.xml').absolute())
+    article_xml = etree.parse(test_asset_path)
+    assert len(article_xml.xpath('//related-article')) == 1
+    add_return_value_from_previous_task(
+        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
+        context=context
+    )
+    # test
+    return_value = strip_related_article_tags_from_article_xml(**context)
+    xml = etree.parse(BytesIO(return_value))
+    assert len(xml.xpath('//related-article')) == 0
+
+
+def test_strip_related_article_tags_from_article_xml_using_article_without_related_article_tag(context):
+    # setup
+    test_asset_path = str(get_asset('elife-00666.xml').absolute())
+    article_xml = etree.parse(test_asset_path)
+    assert len(article_xml.xpath('//related-article')) == 0
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(article_xml, context=context)
+    # test
+    return_value = strip_related_article_tags_from_article_xml(**context)
+    assert return_value == article_xml
+
+
 def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
-    file_name = 'elife-36842.xml'
-    add_return_value_from_previous_task(return_value=file_name, context=context)
+    # setup
+    file_name = 'elife-36842-vor-r3.zip'
+    context['dag_run'].conf = {'file': file_name}
+
+    test_asset_path = str(get_asset('elife-36842.xml').absolute())
+    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml, context=context)
 
     from dags import process_elife_zip_dag as pezd
     test_url = 'http://test-url.org'
     pezd.SERVICE_URL = test_url
     session = requests_mock.put('%s/items/36842/versions/1' %  test_url)
 
+    # test
     wrap_article_in_libero_xml_and_send_to_service(**context)
 
     request_data = bytes(session.last_request.text, encoding='UTF-8')
@@ -123,8 +216,8 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_in_previous_task(context):
-    msg = 'article s3 key was not passed from task previous_task'
+def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_by_previous_task(context):
+    msg = 'Article bytes were not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
-        assert str(error.value) == msg
+    assert str(error.value) == msg
