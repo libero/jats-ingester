@@ -81,7 +81,7 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_clien
         assert expected_file in s3_client.uploaded_files
 
 
-def test_update_tiff_references_to_jpeg_in_articles_with_article_with_tiff_references(context, s3_client):
+def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_references(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     assert return_value == 'elife-36842-vor-r3/elife-36842-tiff_to_jpeg.xml'
@@ -92,14 +92,14 @@ def test_update_tiff_references_to_jpeg_in_articles_with_article_with_tiff_refer
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
 
 
-def test_update_tiff_references_to_jpeg_in_articles_with_article_without_tiff_references(context, s3_client):
+def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_references(context, s3_client):
     context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     assert return_value == 'elife-00666-vor-r1/elife-00666.xml'
     assert len(s3_client.uploaded_files) == 0
 
 
-def test_strip_related_article_tags_from_article_xml_with_article_with_related_article_tag(context, s3_client):
+def test_strip_related_article_tags_from_article_xml_using_article_with_related_article_tag(context, s3_client):
     file = 'elife-36842-vor-r3/elife-36842.xml'
     add_return_value_from_previous_task(return_value=file, context=context)
     return_value = strip_related_article_tags_from_article_xml(**context)
@@ -110,7 +110,7 @@ def test_strip_related_article_tags_from_article_xml_with_article_with_related_a
     assert len(xml.xpath('//related-article')) == 0
 
 
-def test_strip_related_article_tags_from_article_xml_with_article_without_related_article_tag(context, s3_client):
+def test_strip_related_article_tags_from_article_xml_using_article_without_related_article_tag(context, s3_client):
     file = 'elife-00666-vor-r1/elife-00666.xml'
     add_return_value_from_previous_task(return_value=file, context=context)
     return_value = strip_related_article_tags_from_article_xml(**context)
@@ -151,7 +151,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_in_previous_task(context):
+def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_by_previous_task(context):
     msg = 'article s3 key was not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
