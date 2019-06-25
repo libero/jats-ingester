@@ -1,3 +1,4 @@
+import itertools
 from io import BytesIO
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -63,12 +64,12 @@ def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_z
         assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
-def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_client, mocker):
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(context, s3_client, mocker):
     file_name = 'elife-36842-vor-r3.zip'
     folder_name = file_name.replace('.zip', '/')
     context['dag_run'].conf = {'file': file_name}
     keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
-    keys.append(folder_name)
+    keys = itertools.chain(keys, [folder_name])
     mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
 
     convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
@@ -79,6 +80,17 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images(context, s3_clien
     for zipped_file in zipped_files:
         expected_file = file_name.replace('.zip', '/') + zipped_file
         assert expected_file in s3_client.uploaded_files
+
+
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_without_tiff_images(context, s3_client, mocker):
+    file_name = 'elife-00666-vor-r1.zip'
+    folder_name = file_name.replace('.zip', '/')
+    context['dag_run'].conf = {'file': file_name}
+    keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
+    keys = itertools.chain(keys, [folder_name])
+    mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
+    convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
+    assert len(s3_client.uploaded_files) == 0
 
 
 def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_references(context, s3_client):
