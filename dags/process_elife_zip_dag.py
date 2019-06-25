@@ -6,7 +6,6 @@ import logging
 import re
 from datetime import timedelta
 from io import BytesIO
-from pathlib import Path
 from tempfile import TemporaryFile
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -66,7 +65,7 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
-def extract_archived_files_to_bucket(**context):
+def extract_archived_files_to_bucket(**context) -> str:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
 
@@ -106,7 +105,7 @@ def extract_archived_files_to_bucket(**context):
     return '%s/%s' % (folder_name, article_name)
 
 
-def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context):
+def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     prefix = zip_file_name.replace('.zip', '/')
 
