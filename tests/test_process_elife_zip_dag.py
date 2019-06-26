@@ -15,7 +15,7 @@ from dags.process_elife_zip_dag import (
     send_article_to_content_service,
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
-    wrap_article_in_libero_xml_and_send_to_service
+    wrap_article_in_libero_xml
 )
 from tests.assets import get_asset
 from tests.helpers import add_return_value_from_previous_task
@@ -178,7 +178,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     assert return_value == article_xml
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service(context):
+def test_wrap_article_in_libero_xml(context):
     # setup
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
@@ -186,7 +186,7 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context):
     add_return_value_from_previous_task(return_value=article_xml, context=context)
 
     # test
-    libero_xml = wrap_article_in_libero_xml_and_send_to_service(**context)
+    libero_xml = wrap_article_in_libero_xml(**context)
     xml = etree.parse(BytesIO(libero_xml))
 
     namespaces = {'libero': 'http://libero.pub', 'jats': 'http://jats.nlm.nih.gov'}
@@ -205,10 +205,10 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context):
     assert xml_base == expected
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_by_previous_task(context):
+def test_wrap_article_in_libero_xml_raises_exception_if_xml_path_not_returned_by_previous_task(context):
     msg = 'Article bytes were not passed from task previous_task'
     with pytest.raises(AssertionError) as error:
-        wrap_article_in_libero_xml_and_send_to_service(**context)
+        wrap_article_in_libero_xml(**context)
     assert str(error.value) == msg
 
 

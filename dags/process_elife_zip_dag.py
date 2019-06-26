@@ -165,7 +165,7 @@ def strip_related_article_tags_from_article_xml(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def wrap_article_in_libero_xml_and_send_to_service(**context) -> bytes:
+def wrap_article_in_libero_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
 
     # get article id
@@ -255,9 +255,9 @@ strip_related_article_tags = python_operator.PythonOperator(
 )
 
 wrap_article = python_operator.PythonOperator(
-    task_id='wrap_article_in_libero_xml_and_send_to_service',
+    task_id='wrap_article_in_libero_xml',
     provide_context=True,
-    python_callable=wrap_article_in_libero_xml_and_send_to_service,
+    python_callable=wrap_article_in_libero_xml,
     dag=dag
 )
 
