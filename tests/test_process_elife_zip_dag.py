@@ -5,12 +5,14 @@ from zipfile import ZipFile
 
 import pytest
 from lxml import etree
+from requests.exceptions import HTTPError
 
 from dags.process_elife_zip_dag import (
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
     get_article_from_previous_task,
     get_expected_elife_article_name,
+    send_article_to_content_service,
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
     wrap_article_in_libero_xml_and_send_to_service
@@ -176,30 +178,19 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     assert return_value == article_xml
 
 
-def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requests_mock):
+def test_wrap_article_in_libero_xml_and_send_to_service(context):
     # setup
-    file_name = 'elife-36842-vor-r3.zip'
-    context['dag_run'].conf = {'file': file_name}
-
+    context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
     add_return_value_from_previous_task(return_value=article_xml, context=context)
 
-    from dags import process_elife_zip_dag as pezd
-    test_url = 'http://test-url.org'
-    pezd.SERVICE_URL = test_url
-    session = requests_mock.put('%s/items/36842/versions/1' %  test_url)
-
     # test
-    wrap_article_in_libero_xml_and_send_to_service(**context)
+    libero_xml = wrap_article_in_libero_xml_and_send_to_service(**context)
+    xml = etree.parse(BytesIO(libero_xml))
 
-    request_data = bytes(session.last_request.text, encoding='UTF-8')
-    xml = etree.parse(BytesIO(request_data))
-    namespaces = {'libero': 'http://libero.pub',
-                  'jats': 'http://jats.nlm.nih.gov'}
-
-    article_id = xml.xpath('//libero:item/libero:meta/libero:id',
-                           namespaces=namespaces)[0]
+    namespaces = {'libero': 'http://libero.pub', 'jats': 'http://jats.nlm.nih.gov'}
+    article_id = xml.xpath('//libero:item/libero:meta/libero:id', namespaces=namespaces)[0]
     assert article_id.text == '36842'
 
     service = xml.xpath('//libero:item/libero:meta/libero:service', namespaces=namespaces)[0]
@@ -219,3 +210,29 @@ def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_
     with pytest.raises(AssertionError) as error:
         wrap_article_in_libero_xml_and_send_to_service(**context)
     assert str(error.value) == msg
+
+
+def test_send_article_to_service(context, requests_mock):
+    # setup
+    test_asset_path = str(get_asset('libero-00666.xml').absolute())
+    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    session = requests_mock.put('http://test-service.org/items/00666/versions/1')
+
+    # test
+    send_article_to_content_service(**context)
+    response = session._responses[0].get_response(session.last_request)
+    assert response.status_code == 200
+    request_data = bytes(session.last_request.text, encoding='UTF-8')
+    etree.parse(BytesIO(request_data))  # raises exception if cannot parse xml
+
+
+def test_send_article_to_service_raises_exception_for_non_200_response_code(context, requests_mock):
+    # setup
+    test_asset_path = str(get_asset('libero-00666.xml').absolute())
+    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    requests_mock.put('http://test-service.org/items/00666/versions/1', status_code=500)
+
+    with pytest.raises(HTTPError):
+        send_article_to_content_service(**context)

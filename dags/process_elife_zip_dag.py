@@ -165,7 +165,7 @@ def strip_related_article_tags_from_article_xml(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def wrap_article_in_libero_xml_and_send_to_service(**context) -> None:
+def wrap_article_in_libero_xml_and_send_to_service(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
 
     # get article id
@@ -197,14 +197,25 @@ def wrap_article_in_libero_xml_and_send_to_service(**context) -> None:
         root
     )
 
+    return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
+
+
+def send_article_to_content_service(**context) -> None:
+    libero_xml = get_article_from_previous_task(context)
+
+    # get article id
+    xpath = '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]'
+    namespaces = {'libero': 'http://libero.pub', 'jats': 'http://jats.nlm.nih.gov'}
+    article_id = libero_xml.xpath(xpath, namespaces=namespaces)[0].text
+
     # make PUT request to service
     response = requests.put(
         '%s/items/%s/versions/1' % (SERVICE_URL, article_id),
-        data=etree.tostring(xml, xml_declaration=True, encoding='UTF-8'),
+        data=etree.tostring(libero_xml, xml_declaration=True, encoding='UTF-8'),
         headers={'content-type': 'application/xml'}
     )
     response.raise_for_status()
-    logger.info('RESPONSE= %s: %s', response.status_code, response.text)
+    logger.info('RESPONSE STATUS= %s', response.status_code)
 
 
 # schedule_interval is None because DAG is only run when triggered
@@ -247,8 +258,16 @@ wrap_article = python_operator.PythonOperator(
     dag=dag
 )
 
+send_article = python_operator.PythonOperator(
+    task_id='send_article_to_content_service',
+    provide_context=True,
+    python_callable=send_article_to_content_service,
+    dag=dag
+)
+
 # set task run order
 extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(wrap_article)
+wrap_article.set_downstream(send_article)

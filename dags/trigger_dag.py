@@ -47,9 +47,14 @@ def get_zip_files_to_process() -> set:
     :return: set - a set of zip file names from the source bucket that are not
     in the destination.
     """
-    incoming = {key for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET, Delimiter='.zip')}
-    expanded = {re.sub(r'/$', '.zip', key) for key in
+    incoming = {key
+                for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET)
+                if key.endswith('.zip')}
+
+    expanded = {re.sub(r'/$', '.zip', key)
+                for key in
                 list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Delimiter='/')}
+
     return incoming.difference(expanded)
 
 

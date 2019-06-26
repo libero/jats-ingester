@@ -1,0 +1,158 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<item xmlns:jats="http://jats.nlm.nih.gov" xmlns="http://libero.pub">
+  <meta>
+    <id>00666</id>
+    <service>test-service</service>
+  </meta>
+  <jats:article xmlns:ali="http://www.niso.org/schemas/ali/1.0/"
+                xmlns:mml="http://www.w3.org/1998/Math/MathML"
+                xmlns:xlink="http://www.w3.org/1999/xlink"
+                article-type="research-article" dtd-version="1.2"
+                xml:base="https://test-expanded-bucket.test.com/elife-00666-vor-r1/">
+    <jats:front>
+      <jats:article-meta>
+        <jats:article-id pub-id-type="publisher-id">00666</jats:article-id>
+        <jats:title-group>
+          <jats:article-title><jats:italic>Homo naledi</jats:italic>, a new
+            species of the genus                    <jats:italic>Homo
+            </jats:italic> from the Dinaledi Chamber, South Africa
+          </jats:article-title>
+        </jats:title-group>
+        <jats:article-categories>
+          <jats:subj-group subj-group-type="heading">
+            <jats:subject>Evolutionary Biology</jats:subject>
+          </jats:subj-group>
+          <jats:subj-group subj-group-type="display-channel">
+            <jats:subject>Research Article</jats:subject>
+          </jats:subj-group>
+        </jats:article-categories>
+        <jats:kwd-group kwd-group-type="author-keywords">
+          <jats:kwd>XML</jats:kwd>
+          <jats:kwd>Housestyle</jats:kwd>
+          <jats:kwd>eLife</jats:kwd>
+          <jats:kwd>
+            <jats:italic>formatting</jats:italic>
+          </jats:kwd>
+        </jats:kwd-group>
+        <jats:kwd-group kwd-group-type="research-organism">
+          <jats:title>Research organism</jats:title>
+          <jats:kwd>Human</jats:kwd>
+          <jats:kwd>Machine</jats:kwd>
+        </jats:kwd-group>
+        <jats:pub-date date-type="pub" iso-8601-date="2015-09-30"/>
+      </jats:article-meta>
+    </jats:front>
+    <jats:body>
+      <jats:sec>
+        <jats:title>Introduction</jats:title>
+        <jats:p>Fossil hominins were first recognized in the Dinaledi Chamber in
+          the Rising Star cave system in October 2013. During a relatively short
+          excavation, our team recovered an extensive collection of 1550 hominin
+          specimens, representing nearly every element of the skeleton multiple
+          times (Figure 1), including many complete elements and morphologically
+          informative fragments, some in articulation, as well as smaller
+          fragments many of which could be refit into more complete elements.
+          The collection is a morphologically homogeneous sample that can be
+          attributed to no previously-known hominin species. Here we describe
+          this new species, <jats:italic>Homo naledi</jats:italic>. We have not
+          defined <jats:italic>H. naledi</jats:italic> narrowly based on a
+          single jaw or skull because the entire body of material has informed
+          our understanding of its biology.
+        </jats:p>
+        <jats:fig>
+          <jats:caption>
+            <jats:title>Dinaledi skeletal specimens.</jats:title>
+            <jats:p>The figure includes approximately all of the material
+              incorporated in this diagnosis, including the holotype specimen,
+              paratypes and referred material. These make up 737 partial or
+              complete anatomical elements, many of which consist of several
+              refitted specimens. Specimens not identified to element, such as
+              non-diagnostic long bone or cranial fragments, and a subset of
+              fragile specimens are not shown here. The
+              \xe2\x80\x98skeleton\xe2\x80\x99 layout in the center of the photo
+              is a composite of elements that represent multiple individuals.
+              This view is foreshortened; the table upon which the bones are
+              arranged is 120-cm wide for scale.
+            </jats:p>
+          </jats:caption>
+          <jats:graphic mimetype="image" mime-subtype="jpeg"
+                        xlink:href="fig1-v1.jpg"/>
+        </jats:fig>
+        <jats:p>Order Primates LINNAEUS 1758</jats:p>
+        <jats:p>Suborder Anthropoidea MIVART 1864</jats:p>
+        <jats:p>Superfamily Hominoidea GRAY 1825</jats:p>
+        <jats:p>Family Hominidae GRAY 1825</jats:p>
+        <jats:p>Tribe Hominini GRAY 1825</jats:p>
+        <jats:p>Genus <jats:italic>Homo</jats:italic> LINNAEUS 1758
+        </jats:p>
+        <jats:p>
+          <jats:italic>Homo naledi</jats:italic>
+          sp. nov. urn:lsid:zoobank.org:pub:00D1E81A-6E08-4A01-BD98-79A2CEAE2411
+        </jats:p>
+        <jats:sec>
+          <jats:title>Etymology</jats:title>
+          <jats:p>The word <jats:italic>naledi</jats:italic> means
+            \xe2\x80\x98star\xe2\x80\x99 in the Sotho language and refers to the
+            Dinaledi Chamber\'s location within the Rising Star cave system.
+          </jats:p>
+        </jats:sec>
+        <jats:sec>
+          <jats:title>Locality</jats:title>
+          <jats:p>The Dinaledi chamber is located approximately 30 meters
+            underground, within the Rising Star cave system at about
+            26\xc2\xb01\xe2\x80\xb213\xe2\x80\xb2\xe2\x80\xb2 S;
+            27\xc2\xb042\xe2\x80\xb243\xe2\x80\xb2\xe2\x80\xb2 E. The system
+            lies within the Malmani dolomites, approximately 800 meters
+            southwest of the well-known site of Swartkrans in the Cradle of
+            Humankind World Heritage Site, Gauteng Province, South Africa.
+          </jats:p>
+        </jats:sec>
+        <jats:sec>
+          <jats:title>Horizon and associations</jats:title>
+          <jats:p>The present sample of skeletal material from the Dinaledi
+            Chamber was recovered during two field expeditions, in November 2013
+            and March 2014.
+          </jats:p>
+          <jats:p>Six specimens from an ex situ context can be identified as
+            bird bones, and few fragmentary rodent remains have been recovered
+            within the excavation area. Neither of these faunal constituents can
+            presently be associated with the hominin fossil collection (Dirks et
+            al., 2015).
+          </jats:p>
+          <jats:p>Aside from these limited faunal materials, the Dinaledi
+            collection is entirely composed of hominin skeletal and dental
+            remains. The collection so far comprises 1550 fossil hominin
+            specimens, this number includes 1413 bone specimens and 137 isolated
+            dental specimens; an additional 53 teeth are present in mandibular
+            or maxillary bone specimens. Aside from the fragmentary rodent
+            teeth, all dental crowns (n = 179) are hominin, recovered both from
+            surface collection and excavation. Likewise, aside from the few bird
+            elements, all morphologically informative bone specimens are clearly
+            hominin. In all cases where elements are repeated in the sample,
+            they are morphologically homogeneous, with variation consistent with
+            body size and sex differences within a single population. These
+            remains represent a minimum of 15 hominin individuals, as indicated
+            by the repetition and presence of deciduous and adult dental
+            elements.
+          </jats:p>
+          <jats:p>The geological age of the fossils is not yet known.
+            Excavations have thus far recovered hominin material from Unit 2 and
+            Unit 3 in the chamber (Dirks et al., 2015). Surface-collected
+            hominin material from the present top of Unit 3, which includes
+            material derived from both Unit 2 and Unit 3, represents a minority
+            of the assemblage, and is morphologically indistinguishable from
+            material excavated from in situ within Unit 3. In addition to
+            general morphological homogeneity including cranial shape,
+            distinctive morphological configurations of all the recovered first
+            metacarpals, femora, molars, lower premolars and lower canines, are
+            identical in both surface-collected and excavated specimens (see
+            Figure 14 later in the text). These include traits not found in any
+            other hominin species yet described. These considerations strongly
+            indicate that this material represents a single species, and not a
+            commingled assemblage.
+          </jats:p>
+        </jats:sec>
+      </jats:sec>
+    </jats:body>
+  </jats:article>
+</item>

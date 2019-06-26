@@ -30,6 +30,11 @@ from dags.trigger_dag import get_zip_files_to_process, run_dag_for_each_file
         {'test1.zip', 'test2.zip'},
         {'test1/', 'test2/'},
         set()
+    ),
+    (
+        {'test1.zip', 'test2.xml'},
+        set(),
+        {'test1.zip'}
     )
 ])
 def test_identify_zip_files_to_process(mocker, source, destination, expected):
