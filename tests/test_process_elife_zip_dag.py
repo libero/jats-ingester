@@ -213,7 +213,11 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
     article = xml.xpath('//libero:item/jats:article', namespaces=namespaces)[0]
     assert article is not None
     assert len(article.getchildren()) > 0
-    assert article.attrib['{%s}base' % XML_NAMESPACE].endswith('/')
+
+    xml_base = article.attrib['{%s}base' % XML_NAMESPACE]
+    article_assets_url = configuration.conf.get('libero', 'article_assets_url')
+    expected = '%s/%s' % (article_assets_url, file_name.replace('.zip', '/'))
+    assert xml_base == expected
 
 
 def test_wrap_article_in_libero_xml_and_send_to_service_raises_exception_if_xml_path_not_returned_by_previous_task(context):
