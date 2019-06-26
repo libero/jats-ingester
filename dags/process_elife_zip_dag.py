@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import timedelta
 from io import BytesIO
+from pathlib import Path
 from tempfile import TemporaryFile
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -26,12 +27,12 @@ from task_helpers import (
     get_return_value_from_previous_task
 )
 
-BASE_URL = configuration.conf.get('libero', 'base_url')
-SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
-DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
+ARTICLE_ASSETS_URL = configuration.conf.get('libero', 'article_assets_url')
+SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
+DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
-TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory') or None
+TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
 
 logger = logging.getLogger(__name__)
 
@@ -179,10 +180,10 @@ def wrap_article_in_libero_xml_and_send_to_service(**context) -> None:
 
     # add xml:base attribute to article element
     root = article_xml.getroot()
-    key = get_file_name_passed_to_dag_run_conf_file(context).replace('zip', '')
+    key = Path(get_file_name_passed_to_dag_run_conf_file(context)).stem
     root.set(
         '{%s}base' % XML_NAMESPACE,
-        '%s/%s/' % (BASE_URL, key)
+        '%s/%s/' % (ARTICLE_ASSETS_URL, key)
     )
 
     # create libero xml

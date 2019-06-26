@@ -20,8 +20,8 @@ SCHEDULE_INTERVAL = timedelta(minutes=1)
 # formula to start this DAG at server start up.
 # More info at https://gtoonstra.github.io/etl-with-airflow/gotchas.html
 START_DATE = timezone.utcnow().replace(second=0, microsecond=0) - SCHEDULE_INTERVAL
-SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket')
-DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket')
+SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
+DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
 
 logger = logging.getLogger(__name__)
 
