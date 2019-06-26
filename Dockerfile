@@ -8,7 +8,9 @@ COPY requirements/ requirements/
 RUN pip install -U pip \
     && set -ex \
     && apt-get update -yq \
-    && apt-get install -yq --no-install-recommends build-essential \
+    && apt-get install -yq --no-install-recommends \
+        build-essential \
+        libmagickwand-dev \
     && useradd -s /bin/bash -d ${AIRFLOW_HOME} airflow \
     && pip install --no-cache-dir -r requirements/base.txt \
     && apt-get remove --purge --autoremove -yq build-essential \

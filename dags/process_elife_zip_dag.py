@@ -18,7 +18,7 @@ from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
 from lxml.etree import ElementTree
-from PIL import Image
+from wand.image import Image
 
 from aws import get_aws_connection, list_bucket_keys_iter
 from task_helpers import (
@@ -120,12 +120,14 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
                     Key=key,
                     Fileobj=temp_tiff_file
                 )
+                temp_tiff_file.seek(0)
 
-                # tiff images are typically RGBA
-                # PIL.JpegImagePlugin.RAWMODE contains modes that can be saved as jpeg
-                # In order to convert from tiff we have to remove the alpha channel
+                logger.info('converting %s to jpeg', key)
+
                 temp_jpeg = BytesIO()
-                Image.open(temp_tiff_file).convert(mode='RGB').save(temp_jpeg, format='JPEG')
+                with Image(blob=temp_tiff_file) as img:
+                    img.format = 'jpeg'
+                    img.save(file=temp_jpeg)
 
                 key = re.sub(r'\.\w+$', '.jpg', key)
                 s3.put_object(
