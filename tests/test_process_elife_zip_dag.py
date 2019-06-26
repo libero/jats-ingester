@@ -91,20 +91,24 @@ def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_z
     assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
-def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(context, s3_client, mocker):
+@pytest.mark.parametrize('zip_file, uploaded_file, num_of_tiffs', [
+    ('elife-36842-vor-r3.zip', 'elife-36842-vor-r3/elife-36842-fig1.jpg', 25),
+    ('elife-40092-vor-r2.zip', 'elife-40092-vor-r2/elife-40092-fig1.jpg', 11)
+])
+def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(
+        zip_file, uploaded_file, num_of_tiffs, context, s3_client, mocker):
     # setup
-    file_name = 'elife-36842-vor-r3.zip'
-    context['dag_run'].conf = {'file': file_name}
+    context['dag_run'].conf = {'file': zip_file}
 
-    folder_name = file_name.replace('.zip', '/')
-    keys = [folder_name + fn for fn in ZipFile(get_asset(file_name)).namelist()]
+    folder_name = zip_file.replace('.zip', '/')
+    keys = [folder_name + fn for fn in ZipFile(get_asset(zip_file)).namelist()]
     keys = itertools.chain(keys, [folder_name])
     mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
 
     # test
     convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
-    assert len(s3_client.uploaded_files) == 25
-    assert 'elife-36842-vor-r3/elife-36842-fig1.jpg' in s3_client.uploaded_files
+    assert len(s3_client.uploaded_files) == num_of_tiffs
+    assert uploaded_file in s3_client.uploaded_files
 
 
 def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_without_tiff_images(context, s3_client, mocker):
