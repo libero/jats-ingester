@@ -4,7 +4,6 @@ from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
 import pytest
-from airflow import configuration
 from lxml import etree
 
 from dags.process_elife_zip_dag import (
@@ -203,20 +202,15 @@ def test_wrap_article_in_libero_xml_and_send_to_service(context, s3_client, requ
                            namespaces=namespaces)[0]
     assert article_id.text == '36842'
 
-    service_name = configuration.conf.get('libero', 'service_name')
-    assert service_name is not None
-
-    service = xml.xpath('//libero:item/libero:meta/libero:service',
-                        namespaces=namespaces)[0]
-    assert service.text == service_name
+    service = xml.xpath('//libero:item/libero:meta/libero:service', namespaces=namespaces)[0]
+    assert service.text == 'test-service'
 
     article = xml.xpath('//libero:item/jats:article', namespaces=namespaces)[0]
     assert article is not None
     assert len(article.getchildren()) > 0
 
     xml_base = article.attrib['{%s}base' % XML_NAMESPACE]
-    article_assets_url = configuration.conf.get('libero', 'article_assets_url')
-    expected = '%s/%s' % (article_assets_url, file_name.replace('.zip', '/'))
+    expected = 'https://test-expanded-bucket.test.com/elife-36842-vor-r3/'
     assert xml_base == expected
 
 
