@@ -215,7 +215,10 @@ def send_article_to_content_service(**context) -> None:
         headers={'content-type': 'application/xml'}
     )
     response.raise_for_status()
-    logger.info('RESPONSE STATUS= %s', response.status_code)
+    logger.info('Libero wrapped article %s sent to %s with status code %s',
+                article_id,
+                SERVICE_URL,
+                response.status_code)
 
 
 # schedule_interval is None because DAG is only run when triggered
