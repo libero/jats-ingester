@@ -18,7 +18,6 @@ from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
 from lxml.etree import ElementTree
-# from PIL import Image
 from wand.image import Image
 
 from aws import get_aws_connection, list_bucket_keys_iter
