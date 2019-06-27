@@ -125,7 +125,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
                 logger.info('converting %s to jpeg', key)
 
                 temp_jpeg = BytesIO()
-                with Image(blob=temp_tiff_file) as img:
+                with Image(file=temp_tiff_file) as img:
                     img.format = 'jpeg'
                     img.save(file=temp_jpeg)
 
