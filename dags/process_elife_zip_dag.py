@@ -3,11 +3,14 @@ DAG processes a zip file stored in an AWS S3 bucket and prepares the extracted x
 file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
+import multiprocessing
 import re
+import sys
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryFile
+from typing import List
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
@@ -81,6 +84,32 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
+def convert_image_to_jpeg(key):
+    s3 = get_s3_client()
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
+        s3.download_fileobj(
+            Bucket=DESTINATION_BUCKET,
+            Key=key,
+            Fileobj=temp_tiff_file
+        )
+        temp_tiff_file.seek(0)
+
+        logger.info('converting %s to jpeg', key)
+
+        temp_jpeg = BytesIO()
+        with Image(file=temp_tiff_file) as img:
+            img.format = 'jpeg'
+            img.save(file=temp_jpeg)
+
+        key = re.sub(r'\.\w+$', '.jpg', key)
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=key,
+            Body=temp_jpeg.getvalue()
+        )
+        return key
+
+
 def extract_archived_files_to_bucket(**context) -> str:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
 
@@ -113,36 +142,15 @@ def extract_archived_files_to_bucket(**context) -> str:
                 logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
 
 
-def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
+def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     prefix = zip_file_name.replace('.zip', '/')
+    tiffs = {key
+             for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
+             if key.endswith('.tif')}
 
-    s3 = get_s3_client()
-
-    for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
-        if key.endswith('.tif'):
-            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
-                s3.download_fileobj(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=key,
-                    Fileobj=temp_tiff_file
-                )
-                temp_tiff_file.seek(0)
-
-                logger.info('converting %s to jpeg', key)
-
-                temp_jpeg = BytesIO()
-                with Image(file=temp_tiff_file) as img:
-                    img.format = 'jpeg'
-                    img.save(file=temp_jpeg)
-
-                key = re.sub(r'\.\w+$', '.jpg', key)
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=key,
-                    Body=temp_jpeg.getvalue()
-                )
-                logger.info('%s uploaded to %s',key, DESTINATION_BUCKET)
+    with multiprocessing.Pool() as p:
+        return p.map(convert_image_to_jpeg, tiffs, chunksize=3)
 
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
