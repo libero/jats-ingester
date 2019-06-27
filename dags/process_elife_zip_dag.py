@@ -5,7 +5,6 @@ file for Libero content API and sends to the content store via a PUT request.
 import logging
 import multiprocessing
 import re
-import sys
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
@@ -84,7 +83,7 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
-def convert_image_to_jpeg(key):
+def convert_image_in_s3_to_jpeg(key):
     s3 = get_s3_client()
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
         s3.download_fileobj(
@@ -150,7 +149,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
              if key.endswith('.tif')}
 
     with multiprocessing.Pool() as p:
-        return p.map(convert_image_to_jpeg, tiffs, chunksize=3)
+        return p.map(convert_image_in_s3_to_jpeg, tiffs, chunksize=3)
 
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
