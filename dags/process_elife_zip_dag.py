@@ -73,7 +73,7 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
-def convert_image_in_s3_to_jpeg(key):
+def convert_image_in_s3_to_jpeg(key) -> str:
     s3 = get_s3_client()
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
         s3.download_fileobj(
