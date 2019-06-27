@@ -17,7 +17,8 @@ from dags.process_elife_zip_dag import (
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
     wrap_article_in_libero_xml,
-    XLINK_HREF)
+    XLINK_HREF
+)
 from tests.assets import get_asset
 from tests.helpers import add_return_value_from_previous_task
 
@@ -97,7 +98,7 @@ def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_z
     ('elife-40092-vor-r2.zip', 'elife-40092-vor-r2/elife-40092-fig1.jpg', 11)
 ])
 def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_with_tiff_images(
-        zip_file, sample_uploaded_file, num_of_tiffs, context, s3_client, mocker):
+        zip_file, sample_uploaded_file, num_of_tiffs, s3_client, context, mocker):
     # setup
     context['dag_run'].conf = {'file': zip_file}
 
@@ -107,9 +108,9 @@ def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_wit
     mocker.patch('dags.process_elife_zip_dag.list_bucket_keys_iter', return_value=keys)
 
     # test
-    convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
-    assert len(s3_client.uploaded_files) == num_of_tiffs
-    assert sample_uploaded_file in s3_client.uploaded_files
+    uploaded_files = convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context)
+    assert len(uploaded_files) == num_of_tiffs
+    assert sample_uploaded_file in uploaded_files
 
 
 def test_convert_tiff_images_in_expanded_bucket_to_jpeg_images_using_article_without_tiff_images(context, s3_client, mocker):
