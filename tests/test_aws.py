@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from dags.aws import get_s3_client, list_bucket_keys_iter
@@ -12,13 +10,7 @@ def test_get_s3_client():
     assert conn._endpoint.host == "https://s3.eu-west-2.amazonaws.com"
 
 
-def test_get_s3_client_using_AIRFLOW_CONN_env_variable():
-    # format: AIRFLOW_CONN_ prefix followed by 'core', 'remote_log_conn_id' setting
-    # found in the airflow.cfg
-    # For more information:
-    # https://airflow.apache.org/howto/connection/index.html#creating-a-connection-with-environment-variables
-    os.environ['AIRFLOW_CONN_REMOTE_LOGS'] = 'test-host:1234?host=http://test-host:1234'
-
+def test_get_s3_client_using_AIRFLOW_CONN_env_variable(set_remote_logs_env_var):
     conn = get_s3_client()
     assert conn._endpoint._endpoint_prefix == 's3'
     assert conn._endpoint.host == "http://test-host:1234"

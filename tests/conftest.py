@@ -1,3 +1,4 @@
+import os
 import socket
 
 import pytest
@@ -65,3 +66,17 @@ def s3_client(mocker):
     mocks boto client
     """
     return mocker.patch('airflow.hooks.S3_hook.S3Hook.get_conn', new_callable=mocks.s3ClientMock)
+
+
+@pytest.fixture
+def set_remote_logs_env_var():
+    """
+    setup and teardown intended for tests that require the remote logs airflow
+    connection.
+    """
+
+    # create airflow connection using environment variable
+    # for more info: # https://airflow.apache.org/howto/connection/index.html#creating-a-connection-with-environment-variables
+    os.environ['AIRFLOW_CONN_REMOTE_LOGS'] = 'test-uri?host=http://test-host:1234'
+    yield
+    del os.environ['AIRFLOW_CONN_REMOTE_LOGS']

@@ -1,7 +1,10 @@
 FROM python:3.7.3-slim as base
 
-ENV AIRFLOW_HOME=/airflow
+# create airflow connection using environment variable
+# for more info: # https://airflow.apache.org/howto/connection/index.html#creating-a-connection-with-environment-variables
 ENV AIRFLOW_CONN_REMOTE_LOGS=""
+ENV AIRFLOW_HOME=/airflow
+
 WORKDIR ${AIRFLOW_HOME}
 
 COPY requirements/ requirements/
