@@ -1,8 +1,11 @@
+from airflow import configuration
 from airflow.hooks.S3_hook import S3Hook
 
+REMOTE_LOGS_CONNECTION_ID = configuration.conf.get('core', 'remote_log_conn_id') or None
 
-def get_s3_client(aws_conn_id: str = 'remote_logs'):
-    return S3Hook(aws_conn_id=aws_conn_id).get_conn()
+
+def get_s3_client():
+    return S3Hook(aws_conn_id=REMOTE_LOGS_CONNECTION_ID).get_conn()
 
 
 def list_bucket_keys_iter(**list_objects_v2_params):
