@@ -1,6 +1,14 @@
 FROM python:3.7.3-slim as base
 
+# create airflow connection using environment variable
+# for more info: # https://airflow.apache.org/howto/connection/index.html#creating-a-connection-with-environment-variables
+# A connection id required to send airflow logs remotely
+# If the value is empty then default boto settings are used or, you can set a
+# different location to send logs. To do this value must be a URI followed by
+# a query string of parameters like so: http://localstack:4572?host=http://localstack:4572
+ENV AIRFLOW_CONN_REMOTE_LOGS=""
 ENV AIRFLOW_HOME=/airflow
+
 WORKDIR ${AIRFLOW_HOME}
 
 COPY requirements/ requirements/

@@ -58,6 +58,7 @@ services:
       - db
     environment:
       WAIT_HOSTS: db:5432
+      AIRFLOW_CONN_REMOTE_LOGS: http://localstack:4572?host=http://localstack:4572
     volumes:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config

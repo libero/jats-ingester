@@ -1,19 +1,19 @@
 import pytest
 
-from dags.aws import get_aws_connection, list_bucket_keys_iter
+from dags.aws import get_s3_client, list_bucket_keys_iter
 from dags.trigger_dag import SOURCE_BUCKET, DESTINATION_BUCKET
 
 
-@pytest.mark.parametrize('url, expected', [
-    (None, "https://s3.eu-west-2.amazonaws.com"),
-    ('http://test-url.com', 'http://test-url.com')
-])
-def test_get_aws_connection(url, expected):
-    import dags.aws
-    dags.aws.BOTO_ENDPOINT_URL = url
-    conn = get_aws_connection('s3')
+def test_get_s3_client():
+    conn = get_s3_client()
     assert conn._endpoint._endpoint_prefix == 's3'
-    assert conn._endpoint.host == expected
+    assert conn._endpoint.host == "https://s3.eu-west-2.amazonaws.com"
+
+
+def test_get_s3_client_using_AIRFLOW_CONN_env_variable(set_remote_logs_env_var):
+    conn = get_s3_client()
+    assert conn._endpoint._endpoint_prefix == 's3'
+    assert conn._endpoint.host == "http://test-host:1234"
 
 
 @pytest.mark.parametrize('params, response, expected', [

@@ -1,25 +1,18 @@
-import boto3
 from airflow import configuration
+from airflow.hooks.S3_hook import S3Hook
 
-BOTO_ENDPOINT_URL = configuration.conf.get('libero', 'boto_endpoint_url')
+REMOTE_LOGS_CONNECTION_ID = configuration.conf.get('core', 'remote_log_conn_id') or None
 
 
-def get_aws_connection(service: str):
-    """
-    Helper function created because endpoint_url setting (required for local
-    development) cannot be configured.
-    """
-    if BOTO_ENDPOINT_URL:
-        return boto3.client(service, endpoint_url=BOTO_ENDPOINT_URL)
-    else:
-        return boto3.client(service)
+def get_s3_client():
+    return S3Hook(aws_conn_id=REMOTE_LOGS_CONNECTION_ID).get_conn()
 
 
 def list_bucket_keys_iter(**list_objects_v2_params):
     """
     returns a generator that lists keys/prefixes in an AWS S3 bucket.
     """
-    client = get_aws_connection('s3')
+    client = get_s3_client()
     paginator = client.get_paginator('list_objects_v2')
     for page in paginator.paginate(**list_objects_v2_params):
         if 'Contents' in page:
