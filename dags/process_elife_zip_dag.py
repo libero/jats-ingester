@@ -20,7 +20,7 @@ from lxml.builder import ElementMaker
 from lxml.etree import ElementTree
 from wand.image import Image
 
-from aws import get_aws_connection, list_bucket_keys_iter
+from aws import get_s3_client, list_bucket_keys_iter
 from task_helpers import (
     get_file_name_passed_to_dag_run_conf_file,
     get_previous_task_name,
@@ -71,7 +71,7 @@ def extract_archived_files_to_bucket(**context) -> str:
     article_name = get_expected_elife_article_name(zip_file_name)
 
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
-        s3 = get_aws_connection('s3')
+        s3 = get_s3_client()
         s3.download_fileobj(
             Bucket=SOURCE_BUCKET,
             Key=zip_file_name,
@@ -110,7 +110,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     prefix = zip_file_name.replace('.zip', '/')
 
-    s3 = get_aws_connection('s3')
+    s3 = get_s3_client()
 
     for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
         if key.endswith('.tif'):
@@ -143,7 +143,7 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     article_name = get_expected_elife_article_name(zip_file_name)
     folder_name = zip_file_name.replace('.zip', '/')
     s3_key = folder_name + article_name
-    s3 = get_aws_connection('s3')
+    s3 = get_s3_client()
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
     article_bytes = BytesIO(response['Body'].read())
     article_xml = etree.parse(article_bytes)

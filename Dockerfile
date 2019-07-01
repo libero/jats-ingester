@@ -1,6 +1,7 @@
 FROM python:3.7.3-slim as base
 
 ENV AIRFLOW_HOME=/airflow
+ENV AIRFLOW_CONN_REMOTE_LOGS=""
 WORKDIR ${AIRFLOW_HOME}
 
 COPY requirements/ requirements/

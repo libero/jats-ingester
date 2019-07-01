@@ -64,4 +64,4 @@ def s3_client(mocker):
     """
     mocks boto client
     """
-    return mocker.patch('boto3.client', new_callable=mocks.s3ClientMock)
+    return mocker.patch('airflow.hooks.S3_hook.S3Hook.get_conn', new_callable=mocks.s3ClientMock)
