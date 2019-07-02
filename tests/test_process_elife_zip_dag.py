@@ -8,6 +8,7 @@ from lxml import etree
 from requests.exceptions import HTTPError
 
 from dags.process_elife_zip_dag import (
+    add_missing_jpeg_extensions_in_article,
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
     get_article_from_previous_task,
@@ -15,8 +16,8 @@ from dags.process_elife_zip_dag import (
     send_article_to_content_service,
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
-    wrap_article_in_libero_xml
-)
+    wrap_article_in_libero_xml,
+    XLINK_HREF)
 from tests.assets import get_asset
 from tests.helpers import add_return_value_from_previous_task
 
@@ -152,6 +153,42 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_r
     # test
     return_value = update_tiff_references_to_jpeg_in_article(**context)
     assert return_value == article_xml
+
+
+def test_add_missing_jpeg_extensions_in_article(context):
+    # setup
+    zip_file_name = 'elife-40092-vor-r2.zip'
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-40092.xml')))
+    namespaces = {'xlink': 'http://www.w3.org/1999/xlink'}
+    assert len(article_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1"]', namespaces=namespaces)) == 1
+    assert len(article_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1.jpg"]', namespaces=namespaces )) == 0
+    add_return_value_from_previous_task(
+        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
+        context=context
+    )
+
+    # test
+    returned_xml = add_missing_jpeg_extensions_in_article(**context)
+    returned_xml = etree.parse(BytesIO(returned_xml))
+    assert len(returned_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1"]', namespaces=namespaces)) == 0
+    assert len(returned_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1.jpg"]', namespaces=namespaces)) == 1
+
+
+def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context):
+    # setup
+    zip_file_name = 'elife-00666-vor-r1.zip'
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
+    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
+        assert element.attrib[XLINK_HREF].endswith('.jpg')
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml,context=context)
+
+    # test
+    returned_xml = add_missing_jpeg_extensions_in_article(**context)
+    assert returned_xml == article_xml
 
 
 def test_strip_related_article_tags_from_article_xml_using_article_with_related_article_tag(context):
