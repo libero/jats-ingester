@@ -1,4 +1,5 @@
 import itertools
+import re
 from io import BytesIO
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -189,6 +190,27 @@ def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(c
     # test
     returned_xml = add_missing_jpeg_extensions_in_article(**context)
     assert returned_xml == article_xml
+
+
+def test_add_missing_jpeg_extensions_in_article_with_non_jpeg_extension(context):
+    # setup
+    zip_file_name = 'elife-00666-vor-r1.zip'
+    test_asset_path = str(get_asset(zip_file_name).absolute())
+    article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
+
+    # add incorrect extension to jpeg reference
+    namespaces = {'xlink': 'http://www.w3.org/1999/xlink'}
+    element = article_xml.xpath('//*[@xlink:href="fig1-v1.jpg"]', namespaces=namespaces)[0]
+    element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF].replace('.jpg', '.tif')
+
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml,context=context)
+
+    # test
+    returned_xml = add_missing_jpeg_extensions_in_article(**context)
+    returned_xml = etree.parse(BytesIO(returned_xml))
+    assert len(returned_xml.xpath('//*[@xlink:href="fig-v1.tif"]', namespaces=namespaces)) == 0
+    assert len(returned_xml.xpath('//*[@xlink:href="fig1-v1.jpg"]',namespaces=namespaces)) == 1
 
 
 def test_strip_related_article_tags_from_article_xml_using_article_with_related_article_tag(context):
