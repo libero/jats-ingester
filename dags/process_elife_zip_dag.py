@@ -164,12 +164,8 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
 def add_missing_jpeg_extensions_in_article(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
     for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
-        image_file_name = element.attrib[XLINK_HREF]
-        has_extension = re.search(r'\.\w+$', image_file_name)
-        if has_extension and not image_file_name.endswith('.jpg'):
-            element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', image_file_name)
-        elif not image_file_name.endswith('.jpg'):
-            element.attrib[XLINK_HREF] = image_file_name + '.jpg'
+        if not element.attrib[XLINK_HREF].endswith('.jpg'):
+            element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF] + '.jpg'
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
