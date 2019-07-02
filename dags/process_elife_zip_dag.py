@@ -34,6 +34,7 @@ DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
+SEARCH_URL = configuration.conf.get('libero', 'search_url')
 
 # namespaces
 XLINK_HREF = '{http://www.w3.org/1999/xlink}href'
@@ -234,6 +235,13 @@ def send_article_to_content_service(**context) -> None:
                 response.status_code)
 
 
+def send_post_request_to_reindex_search_service():
+    logger.info('Sending POST request to %s', SEARCH_URL)
+    response = requests.post(SEARCH_URL)
+    response.raise_for_status()
+    logger.info('RESPONSE= %s %s', response.text, response.status_code)
+
+
 # schedule_interval is None because DAG is only run when triggered
 dag = DAG('process_elife_zip_dag',
           default_args=default_args,
@@ -288,6 +296,12 @@ send_article = python_operator.PythonOperator(
     dag=dag
 )
 
+reindex_search = python_operator.PythonOperator(
+    task_id='send_post_request_to_reindex_search_service',
+    python_callable=send_post_request_to_reindex_search_service,
+    dag=dag
+)
+
 # set task run order
 extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
@@ -295,3 +309,4 @@ update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
+send_article.set_downstream(reindex_search)

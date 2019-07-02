@@ -96,3 +96,12 @@ services:
     volumes:
       - ./content-store.py:/airflow/content-store.py
     command: python /airflow/content-store.py
+
+  search:
+    build:
+      context: .
+      target: dev
+    entrypoint: ""
+    volumes:
+      - ./search.py:/airflow/search.py
+    command: python /airflow/search.py
