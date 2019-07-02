@@ -27,12 +27,16 @@ from task_helpers import (
     get_return_value_from_previous_task
 )
 
+# settings
 ARTICLE_ASSETS_URL = configuration.conf.get('libero', 'article_assets_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
+
+# namespaces
+XLINK_HREF = '{http://www.w3.org/1999/xlink}href'
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +83,7 @@ def extract_archived_files_to_bucket(**context) -> str:
         )
         logger.info('ZIPPED FILES= %s', ZipFile(temp_zip_file).namelist())
 
-        folder_name = zip_file_name.replace('.zip', '/')
+        prefix = zip_file_name.replace('.zip', '/')
 
         # extract zip to cloud bucket
         for zipped_file_path in ZipFile(temp_zip_file).namelist():
@@ -88,7 +92,7 @@ def extract_archived_files_to_bucket(**context) -> str:
                 temp_unzipped_file.write(ZipFile(temp_zip_file).read(zipped_file_path))
                 temp_unzipped_file.seek(0)
 
-                s3_key = folder_name + zipped_file_path
+                s3_key = prefix + zipped_file_path
                 s3.put_object(
                     Bucket=DESTINATION_BUCKET,
                     Key=s3_key,
@@ -103,7 +107,7 @@ def extract_archived_files_to_bucket(**context) -> str:
             raise FileNotFoundError(error_message)
 
     # pass article cloud bucket key to next task
-    return '%s/%s' % (folder_name, article_name)
+    return '%s/%s' % (prefix, article_name)
 
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
@@ -141,8 +145,8 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_name = get_expected_elife_article_name(zip_file_name)
-    folder_name = zip_file_name.replace('.zip', '/')
-    s3_key = folder_name + article_name
+    prefix = zip_file_name.replace('.zip', '/')
+    s3_key = prefix + article_name
     s3 = get_s3_client()
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
     article_bytes = BytesIO(response['Body'].read())
@@ -150,9 +154,31 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
     if matches:
         for element in matches:
-            href = '{http://www.w3.org/1999/xlink}href'
-            element.attrib[href] = re.sub(r'\.\w+$', '.jpg', element.attrib[href])
+            element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
             element.attrib['mime-subtype'] = 'jpeg'
+
+    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+
+
+def add_missing_jpeg_extensions_in_article(**context) -> bytes:
+    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
+    article_name = get_expected_elife_article_name(zip_file_name)
+    prefix = zip_file_name.replace('.zip', '/')
+    s3_key = prefix + article_name
+    s3 = get_s3_client()
+    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+    article_bytes = BytesIO(response['Body'].read())
+    article_xml = etree.parse(article_bytes)
+    matches = article_xml.xpath(
+        '//*[@mimetype="image" and @mime-subtype="jpeg"]')
+    if matches:
+        for element in matches:
+            image_file_name = element.attrib[XLINK_HREF]
+            has_extension = re.search(r'\.\w+$', image_file_name)
+            if has_extension and not image_file_name.endswith('.jpg'):
+                element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', image_file_name)
+            elif not image_file_name.endswith('.jpg'):
+                element.attrib[XLINK_HREF] = image_file_name + '.jpg'
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
@@ -249,6 +275,13 @@ update_tiff_references = python_operator.PythonOperator(
     dag=dag
 )
 
+add_missing_jpeg_extensions = python_operator.PythonOperator(
+    task_id='add_missing_jpeg_extensions_in_article',
+    provide_context=True,
+    python_callable=add_missing_jpeg_extensions_in_article,
+    dag=dag
+)
+
 strip_related_article_tags = python_operator.PythonOperator(
     task_id='strip_related_article_tags_from_article_xml',
     provide_context=True,
@@ -273,6 +306,7 @@ send_article = python_operator.PythonOperator(
 # set task run order
 extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
-update_tiff_references.set_downstream(strip_related_article_tags)
+update_tiff_references.set_downstream(add_missing_jpeg_extensions)
+add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
