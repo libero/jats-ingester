@@ -162,17 +162,7 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
 
 
 def add_missing_jpeg_extensions_in_article(**context) -> bytes:
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    article_name = get_expected_elife_article_name(zip_file_name)
-    prefix = zip_file_name.replace('.zip', '/')
-    s3_key = prefix + article_name
-
-    s3 = get_s3_client()
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
-
-    article_bytes = BytesIO(response['Body'].read())
-    article_xml = etree.parse(article_bytes)
-
+    article_xml = get_article_from_previous_task(context)
     for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
         image_file_name = element.attrib[XLINK_HREF]
         has_extension = re.search(r'\.\w+$', image_file_name)

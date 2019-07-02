@@ -155,15 +155,18 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_r
     assert return_value == article_xml
 
 
-def test_add_missing_jpeg_extensions_in_article(context, s3_client):
+def test_add_missing_jpeg_extensions_in_article(context):
     # setup
     zip_file_name = 'elife-40092-vor-r2.zip'
-    context['dag_run'].conf = {'file': zip_file_name}
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-40092.xml')))
     namespaces = {'xlink': 'http://www.w3.org/1999/xlink'}
     assert len(article_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1"]', namespaces=namespaces)) == 1
     assert len(article_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1.jpg"]', namespaces=namespaces )) == 0
+    add_return_value_from_previous_task(
+        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
+        context=context
+    )
 
     # test
     returned_xml = add_missing_jpeg_extensions_in_article(**context)
@@ -172,16 +175,16 @@ def test_add_missing_jpeg_extensions_in_article(context, s3_client):
     assert len(returned_xml.xpath('//*[@xlink:href="elife-40092-resp-fig1.jpg"]', namespaces=namespaces)) == 1
 
 
-def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context, s3_client):
+def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context):
     # setup
     zip_file_name = 'elife-00666-vor-r1.zip'
-    context['dag_run'].conf = {'file': zip_file_name}
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
     for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
         assert element.attrib[XLINK_HREF].endswith('.jpg')
 
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(return_value=article_xml,context=context)
 
     # test
     returned_xml = add_missing_jpeg_extensions_in_article(**context)
