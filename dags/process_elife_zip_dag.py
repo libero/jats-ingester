@@ -147,15 +147,16 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     article_name = get_expected_elife_article_name(zip_file_name)
     prefix = zip_file_name.replace('.zip', '/')
     s3_key = prefix + article_name
+
     s3 = get_s3_client()
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+
     article_bytes = BytesIO(response['Body'].read())
     article_xml = etree.parse(article_bytes)
-    matches = article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')
-    if matches:
-        for element in matches:
-            element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
-            element.attrib['mime-subtype'] = 'jpeg'
+
+    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]'):
+        element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
+        element.attrib['mime-subtype'] = 'jpeg'
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
@@ -165,30 +166,28 @@ def add_missing_jpeg_extensions_in_article(**context) -> bytes:
     article_name = get_expected_elife_article_name(zip_file_name)
     prefix = zip_file_name.replace('.zip', '/')
     s3_key = prefix + article_name
+
     s3 = get_s3_client()
     response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
+
     article_bytes = BytesIO(response['Body'].read())
     article_xml = etree.parse(article_bytes)
-    matches = article_xml.xpath(
-        '//*[@mimetype="image" and @mime-subtype="jpeg"]')
-    if matches:
-        for element in matches:
-            image_file_name = element.attrib[XLINK_HREF]
-            has_extension = re.search(r'\.\w+$', image_file_name)
-            if has_extension and not image_file_name.endswith('.jpg'):
-                element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', image_file_name)
-            elif not image_file_name.endswith('.jpg'):
-                element.attrib[XLINK_HREF] = image_file_name + '.jpg'
+
+    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
+        image_file_name = element.attrib[XLINK_HREF]
+        has_extension = re.search(r'\.\w+$', image_file_name)
+        if has_extension and not image_file_name.endswith('.jpg'):
+            element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', image_file_name)
+        elif not image_file_name.endswith('.jpg'):
+            element.attrib[XLINK_HREF] = image_file_name + '.jpg'
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
 def strip_related_article_tags_from_article_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-    matches = article_xml.xpath('//related-article')
-    if matches:
-        for element in matches:
-            element.getparent().remove(element)
+    for element in article_xml.xpath('//related-article'):
+        element.getparent().remove(element)
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
