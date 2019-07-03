@@ -71,7 +71,7 @@ def run_dag_for_each_file(dag_to_trigger, **context) -> None:
     for file_name in file_names:
 
         # check if a file has already been triggered for processing
-        if session.query(DagRun).filter(and_(DagRun.run_id.contains(file_name),
+        if session.query(DagRun).filter(and_(DagRun.run_id.startswith(file_name + '_'),
                                              DagRun.state == 'running')).first():
             continue
 

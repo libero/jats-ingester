@@ -77,7 +77,8 @@ def test_run_dag_for_each_file_does_not_trigger_without_files_to_trigger(mocker,
 
 def test_run_dag_for_each_file_does_not_trigger_running_file(mocker, context):
     # simulate running job in db
-    DagRunFactory(run_id='file2.zip', state='running')
+    DagRunFactory(run_id='test-file1.zip_a1b2', state='running')
+    DagRunFactory(run_id='file2.zip_a1b2', state='running')
 
     # populate expected return value of previous task
     ti = context['dag_run'].get_task_instances()[0]
