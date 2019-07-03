@@ -4,10 +4,12 @@ file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
 import re
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
-from tempfile import TemporaryFile
+from tempfile import TemporaryFile, NamedTemporaryFile
+from typing import List
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
@@ -35,6 +37,7 @@ SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
+WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
 
 # namespaces
 XLINK_HREF = '{http://www.w3.org/1999/xlink}href'
@@ -54,7 +57,6 @@ default_args = {
 
 
 def get_article_from_zip_in_s3(zip_file_name: str) -> ElementTree:
-
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_s3_client()
         s3.download_fileobj(
@@ -81,69 +83,105 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
-def extract_archived_files_to_bucket(**context) -> str:
+def extract_file_to_s3(args: tuple) -> str:
+    """
+    Reads a file contained in a zip file and uploads it to a predefined bucket.
+    This function is intended to be used in Pool of workers.
+
+    :param args: a tuple of strings (prefix, zip_file_path, zipped_file)
+    :return str: name of file uploaded
+    """
+    prefix, zip_file_path, zipped_file = args
+    s3 = get_s3_client()
+    # extract zipped files to disk to avoid using too much memory
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
+        temp_unzipped_file.write(ZipFile(zip_file_path).read(zipped_file))
+        temp_unzipped_file.seek(0)
+
+        s3_key = prefix + zipped_file
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=s3_key,
+            Body=temp_unzipped_file
+        )
+        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
+        return zipped_file
+
+
+def convert_image_in_s3_to_jpeg(key) -> str:
+    """
+    Downloads a tiff file, converts it to jpeg and uploads it to a predefined bucket.
+    This function is intended to be used in Pool of workers.
+
+    :param key: cloud storage key of tiff file to download and convert to jpeg
+    :return str: name of file uploaded
+    """
+    s3 = get_s3_client()
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
+        s3.download_fileobj(
+            Bucket=DESTINATION_BUCKET,
+            Key=key,
+            Fileobj=temp_tiff_file
+        )
+        temp_tiff_file.seek(0)
+
+        logger.info('converting %s to jpeg', key)
+
+        temp_jpeg = BytesIO()
+        with Image(file=temp_tiff_file) as img:
+            img.format = 'jpeg'
+            img.save(file=temp_jpeg)
+
+        key = re.sub(r'\.\w+$', '.jpg', key)
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=key,
+            Body=temp_jpeg.getvalue()
+        )
+        return key
+
+
+def extract_archived_files_to_bucket(**context) -> List[str]:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
 
-    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
+    with NamedTemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_s3_client()
         s3.download_fileobj(
             Bucket=SOURCE_BUCKET,
             Key=zip_file_name,
             Fileobj=temp_zip_file
         )
-        zip_file = ZipFile(temp_zip_file)
 
+        zip_file = ZipFile(temp_zip_file)
         logger.info('ZIPPED FILES= %s', zip_file.namelist())
 
-        prefix = zip_file_name.replace('.zip', '/')
-
         # extract zip to cloud bucket
-        for zipped_file_path in zip_file.namelist():
-            # extract zipped files to disk to avoid using too much memory
-            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
-                temp_unzipped_file.write(zip_file.read(zipped_file_path))
-                temp_unzipped_file.seek(0)
+        thread_options = {
+            'max_workers': WORKERS,
+            'thread_name_prefix': 'extracting_%s_' % zip_file_name
+        }
+        with ThreadPoolExecutor(**thread_options) as p:
+            prefix = zip_file_name.replace('.zip', '/')
+            args = [(prefix, temp_zip_file.name, f) for f in zip_file.namelist()]
+            uploaded_files = p.map(extract_file_to_s3, args)
 
-                s3_key = prefix + zipped_file_path
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=s3_key,
-                    Body=temp_unzipped_file
-                )
-                logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
+    return list(uploaded_files)
 
 
-def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
+def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     prefix = zip_file_name.replace('.zip', '/')
+    tiffs = {key
+             for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
+             if key.endswith('.tif')}
 
-    s3 = get_s3_client()
-
-    for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix):
-        if key.endswith('.tif'):
-            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
-                s3.download_fileobj(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=key,
-                    Fileobj=temp_tiff_file
-                )
-                temp_tiff_file.seek(0)
-
-                logger.info('converting %s to jpeg', key)
-
-                temp_jpeg = BytesIO()
-                with Image(file=temp_tiff_file) as img:
-                    img.format = 'jpeg'
-                    img.save(file=temp_jpeg)
-
-                key = re.sub(r'\.\w+$', '.jpg', key)
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=key,
-                    Body=temp_jpeg.getvalue()
-                )
-                logger.info('%s uploaded to %s',key, DESTINATION_BUCKET)
-
+    thread_options = {
+        'max_workers': WORKERS,
+        'thread_name_prefix': 'converting_tiffs_%s_' % zip_file_name
+    }
+    with ThreadPoolExecutor(**thread_options) as p:
+        uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
+        return list(uploaded_images)
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
