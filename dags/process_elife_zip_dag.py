@@ -158,7 +158,7 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
         # extract zip to cloud bucket
         thread_options = {
             'max_workers': WORKERS,
-            'thread_name_prefix': 'extracting_%s' % zip_file_name
+            'thread_name_prefix': 'extracting_%s_' % zip_file_name
         }
         with ThreadPoolExecutor(**thread_options) as p:
             prefix = zip_file_name.replace('.zip', '/')
@@ -177,7 +177,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
 
     thread_options = {
         'max_workers': WORKERS,
-        'thread_name_prefix': 'converting_tiffs_%s' % zip_file_name
+        'thread_name_prefix': 'converting_tiffs_%s_' % zip_file_name
     }
     with ThreadPoolExecutor(**thread_options) as p:
         uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
