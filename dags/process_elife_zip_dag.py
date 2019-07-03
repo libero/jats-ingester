@@ -156,7 +156,11 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
         logger.info('ZIPPED FILES= %s', zip_file.namelist())
 
         # extract zip to cloud bucket
-        with ThreadPoolExecutor(max_workers=WORKERS) as p:
+        thread_options = {
+            'max_workers': WORKERS,
+            'thread_name_prefix': 'extracting_%s' % zip_file_name
+        }
+        with ThreadPoolExecutor(**thread_options) as p:
             prefix = zip_file_name.replace('.zip', '/')
             args = [(prefix, temp_zip_file.name, f) for f in zip_file.namelist()]
             uploaded_files = p.map(extract_file_to_s3, args)
@@ -171,7 +175,11 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
              for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
              if key.endswith('.tif')}
 
-    with ThreadPoolExecutor(max_workers=WORKERS) as p:
+    thread_options = {
+        'max_workers': WORKERS,
+        'thread_name_prefix': 'converting_tiffs_%s' % zip_file_name
+    }
+    with ThreadPoolExecutor(**thread_options) as p:
         uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
         return list(uploaded_images)
 
