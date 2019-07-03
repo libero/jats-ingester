@@ -53,14 +53,24 @@ default_args = {
 }
 
 
-def get_expected_elife_article_name(file_name: str) -> str:
-    pattern = r'^\w+-\w+'
-    article_name = re.search(pattern, file_name)
-    error_message = ('%s is malformed. Expected archive name to start with '
-                     'any number/character, hyphen, any number/character (%s)'
-                     'example: name-id.extension' % (file_name, pattern))
-    assert article_name and file_name.startswith(article_name.group()), error_message
-    return article_name.group() + '.xml'
+def get_article_from_zip_in_s3(zip_file_name: str) -> ElementTree:
+
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
+        s3 = get_s3_client()
+        s3.download_fileobj(
+            Bucket=SOURCE_BUCKET,
+            Key=zip_file_name,
+            Fileobj=temp_zip_file
+        )
+
+        zip_file = ZipFile(temp_zip_file)
+        for zipped_file in zip_file.namelist():
+            if zipped_file.endswith('.xml'):
+                xml = etree.parse(BytesIO(zip_file.read(zipped_file)))
+                if xml.xpath('/article'):
+                    return xml
+
+    raise FileNotFoundError('Unable to find a JATS article in %s' % zip_file_name)
 
 
 def get_article_from_previous_task(context: dict) -> ElementTree:
@@ -73,7 +83,6 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
 
 def extract_archived_files_to_bucket(**context) -> str:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    article_name = get_expected_elife_article_name(zip_file_name)
 
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_s3_client()
@@ -82,15 +91,17 @@ def extract_archived_files_to_bucket(**context) -> str:
             Key=zip_file_name,
             Fileobj=temp_zip_file
         )
-        logger.info('ZIPPED FILES= %s', ZipFile(temp_zip_file).namelist())
+        zip_file = ZipFile(temp_zip_file)
+
+        logger.info('ZIPPED FILES= %s', zip_file.namelist())
 
         prefix = zip_file_name.replace('.zip', '/')
 
         # extract zip to cloud bucket
-        for zipped_file_path in ZipFile(temp_zip_file).namelist():
+        for zipped_file_path in zip_file.namelist():
             # extract zipped files to disk to avoid using too much memory
             with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
-                temp_unzipped_file.write(ZipFile(temp_zip_file).read(zipped_file_path))
+                temp_unzipped_file.write(zip_file.read(zipped_file_path))
                 temp_unzipped_file.seek(0)
 
                 s3_key = prefix + zipped_file_path
@@ -100,15 +111,6 @@ def extract_archived_files_to_bucket(**context) -> str:
                     Body=temp_unzipped_file
                 )
                 logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
-
-        # check if expected article in zip file
-        if not [fn for fn in ZipFile(temp_zip_file).namelist() if article_name in fn]:
-            error_message = '%s not in %s: %s' % (article_name, zip_file_name,
-                                                  ZipFile(temp_zip_file).namelist())
-            raise FileNotFoundError(error_message)
-
-    # pass article cloud bucket key to next task
-    return '%s/%s' % (prefix, article_name)
 
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
@@ -145,15 +147,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> None:
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    article_name = get_expected_elife_article_name(zip_file_name)
-    prefix = zip_file_name.replace('.zip', '/')
-    s3_key = prefix + article_name
-
-    s3 = get_s3_client()
-    response = s3.get_object(Bucket=DESTINATION_BUCKET, Key=s3_key)
-
-    article_bytes = BytesIO(response['Body'].read())
-    article_xml = etree.parse(article_bytes)
+    article_xml = get_article_from_zip_in_s3(zip_file_name)
 
     for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]'):
         element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
