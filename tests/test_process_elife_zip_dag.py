@@ -12,7 +12,7 @@ from dags.process_elife_zip_dag import (
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
     get_article_from_previous_task,
-    get_article_file_name,
+    get_article_from_zip_in_s3,
     send_article_to_content_service,
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
@@ -22,22 +22,25 @@ from tests.assets import get_asset
 from tests.helpers import add_return_value_from_previous_task
 
 
-@pytest.mark.parametrize('archive_name, expected', [
-    ('elife-00666-vor-r1.zip', 'elife-00666.xml'),
-    ('elife-36842-vor-r3.zip', 'elife-36842.xml'),
-    ('elife-40092-vor-r2.zip', 'elife-40092.xml'),
+@pytest.mark.parametrize('archive_name, expected_id', [
+    ('elife-00666-vor-r1.zip', '00666'),
+    ('elife-36842-vor-r3.zip', '36842'),
+    ('elife-40092-vor-r2.zip', '40092'),
 ])
-def test_get_article_file_name(archive_name, expected, s3_client):
-    article_name = get_article_file_name(archive_name)
-    assert article_name == expected
+def test_get_article_from_zip_in_s3(archive_name, expected_id, s3_client):
+    article = get_article_from_zip_in_s3(archive_name)
+    article_id = article.xpath(
+        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
+    )[0].text
+    assert article_id == expected_id
 
 
-def test_get_article_file_name_raises_exception_when_article_not_in_zip(mocker, s3_client):
+def test_get_article_from_zip_in_s3_raises_exception_when_article_not_in_zip(mocker, s3_client):
     # setup
     mocker.patch('zipfile.ZipFile.namelist', return_value=[])
     # test
     with pytest.raises(FileNotFoundError) as error:
-        get_article_file_name('elife-00666-vor-r1.zip')
+        get_article_from_zip_in_s3('elife-00666-vor-r1.zip')
     assert str(error.value) == 'Unable to find a JATS article in elife-00666-vor-r1.zip'
 
 
@@ -47,8 +50,8 @@ def test_get_article_from_previous_task(context):
     article_xml = etree.tostring(etree.parse(test_asset_path))
     add_return_value_from_previous_task(return_value=article_xml, context=context)
     # test
-    returned_value = get_article_from_previous_task(context)
-    assert etree.tostring(returned_value) == article_xml
+    returned_xml = get_article_from_previous_task(context)
+    assert etree.tostring(returned_xml) == article_xml
 
 
 @pytest.mark.parametrize('return_value', [b'', '', None])
@@ -111,13 +114,16 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_refe
     # setup
     zip_file_name = 'elife-36842-vor-r3.zip'
     context['dag_run'].conf = {'file': zip_file_name}
+
+    # check the test asset contains tiff references
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-36842.xml')))
     assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 25
     assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 0
+
     # test
-    return_value = update_tiff_references_to_jpeg_in_article(**context)
-    xml = etree.parse(BytesIO(return_value))
+    returned_xml = update_tiff_references_to_jpeg_in_article(**context)
+    xml = etree.parse(BytesIO(returned_xml))
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
     assert len(xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]')) == 25
 
@@ -126,14 +132,16 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_r
     # setup
     zip_file_name = 'elife-00666-vor-r1.zip'
     context['dag_run'].conf = {'file': zip_file_name}
+
+    # check the test asset does not contain tiff references
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
     assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
-
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+
     # test
-    return_value = update_tiff_references_to_jpeg_in_article(**context)
-    assert return_value == article_xml
+    returned_xml = update_tiff_references_to_jpeg_in_article(**context)
+    assert returned_xml == article_xml
 
 
 def test_add_missing_jpeg_extensions_in_article(context):
@@ -192,9 +200,9 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     assert len(article_xml.xpath('//related-article')) == 0
-
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
     add_return_value_from_previous_task(article_xml, context=context)
+
     # test
     return_value = strip_related_article_tags_from_article_xml(**context)
     assert return_value == article_xml
