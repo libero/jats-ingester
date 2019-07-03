@@ -3,12 +3,12 @@ DAG processes a zip file stored in an AWS S3 bucket and prepares the extracted x
 file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
-import multiprocessing
 import re
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
-from tempfile import TemporaryFile
+from tempfile import TemporaryFile, NamedTemporaryFile
 from typing import List
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
@@ -83,7 +83,39 @@ def get_article_from_previous_task(context: dict) -> ElementTree:
     return etree.parse(BytesIO(article_bytes))
 
 
+def extract_file_to_s3(args: tuple) -> str:
+    """
+    Reads a file contained in a zip file and uploads it to a predefined bucket.
+    This function is intended to be used in Pool of workers.
+
+    :param args: a tuple of strings (prefix, zip_file_path, zipped_file)
+    :return str: name of file uploaded
+    """
+    prefix, zip_file_path, zipped_file = args
+    s3 = get_s3_client()
+    # extract zipped files to disk to avoid using too much memory
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
+        temp_unzipped_file.write(ZipFile(zip_file_path).read(zipped_file))
+        temp_unzipped_file.seek(0)
+
+        s3_key = prefix + zipped_file
+        s3.put_object(
+            Bucket=DESTINATION_BUCKET,
+            Key=s3_key,
+            Body=temp_unzipped_file
+        )
+        logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
+        return zipped_file
+
+
 def convert_image_in_s3_to_jpeg(key) -> str:
+    """
+    Downloads a tiff file, converts it to jpeg and uploads it to a predefined bucket.
+    This function is intended to be used in Pool of workers.
+
+    :param key: cloud storage key of tiff file to download and convert to jpeg
+    :return str: name of file uploaded
+    """
     s3 = get_s3_client()
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
         s3.download_fileobj(
@@ -109,10 +141,10 @@ def convert_image_in_s3_to_jpeg(key) -> str:
         return key
 
 
-def extract_archived_files_to_bucket(**context) -> str:
+def extract_archived_files_to_bucket(**context) -> List[str]:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
 
-    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
+    with NamedTemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_s3_client()
         s3.download_fileobj(
             Bucket=SOURCE_BUCKET,
@@ -125,20 +157,13 @@ def extract_archived_files_to_bucket(**context) -> str:
 
         prefix = zip_file_name.replace('.zip', '/')
 
-        # extract zip to cloud bucket
-        for zipped_file_path in zip_file.namelist():
-            # extract zipped files to disk to avoid using too much memory
-            with TemporaryFile(dir=TEMP_DIRECTORY) as temp_unzipped_file:
-                temp_unzipped_file.write(zip_file.read(zipped_file_path))
-                temp_unzipped_file.seek(0)
+        args = [(prefix, temp_zip_file.name, f) for f in ZipFile(temp_zip_file).namelist()]
 
-                s3_key = prefix + zipped_file_path
-                s3.put_object(
-                    Bucket=DESTINATION_BUCKET,
-                    Key=s3_key,
-                    Body=temp_unzipped_file
-                )
-                logger.info('%s uploaded to %s', s3_key, DESTINATION_BUCKET)
+        # extract zip to cloud bucket
+        with ThreadPoolExecutor() as p:
+            uploaded_files = p.map(extract_file_to_s3, args)
+
+    return list(uploaded_files)
 
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
@@ -148,9 +173,9 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
              for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
              if key.endswith('.tif')}
 
-    with multiprocessing.Pool() as p:
-        return p.map(convert_image_in_s3_to_jpeg, tiffs, chunksize=3)
-
+    with ThreadPoolExecutor() as p:
+        uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
+        return list(uploaded_images)
 
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
