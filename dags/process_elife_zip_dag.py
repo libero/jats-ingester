@@ -56,7 +56,6 @@ default_args = {
 
 
 def get_article_from_zip_in_s3(zip_file_name: str) -> ElementTree:
-
     with TemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
         s3 = get_s3_client()
         s3.download_fileobj(
@@ -151,16 +150,14 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
             Key=zip_file_name,
             Fileobj=temp_zip_file
         )
+
         zip_file = ZipFile(temp_zip_file)
-
         logger.info('ZIPPED FILES= %s', zip_file.namelist())
-
-        prefix = zip_file_name.replace('.zip', '/')
-
-        args = [(prefix, temp_zip_file.name, f) for f in ZipFile(temp_zip_file).namelist()]
 
         # extract zip to cloud bucket
         with ThreadPoolExecutor() as p:
+            prefix = zip_file_name.replace('.zip', '/')
+            args = [(prefix, temp_zip_file.name, f) for f in zip_file.namelist()]
             uploaded_files = p.map(extract_file_to_s3, args)
 
     return list(uploaded_files)
