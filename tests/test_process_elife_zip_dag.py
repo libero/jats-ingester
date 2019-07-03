@@ -12,7 +12,7 @@ from dags.process_elife_zip_dag import (
     convert_tiff_images_in_expanded_bucket_to_jpeg_images,
     extract_archived_files_to_bucket,
     get_article_from_previous_task,
-    get_expected_elife_article_name,
+    get_article_file_name,
     send_article_to_content_service,
     strip_related_article_tags_from_article_xml,
     update_tiff_references_to_jpeg_in_article,
@@ -24,30 +24,21 @@ from tests.helpers import add_return_value_from_previous_task
 
 @pytest.mark.parametrize('archive_name, expected', [
     ('elife-00666-vor-r1.zip', 'elife-00666.xml'),
-    ('elife-00666-vor-r1', 'elife-00666.xml'),
-    ('test-name', 'test-name.xml'),
-    ('test123-name456', 'test123-name456.xml'),
-    ('1test1-1name1', '1test1-1name1.xml'),
+    ('elife-36842-vor-r3.zip', 'elife-36842.xml'),
+    ('elife-40092-vor-r2.zip', 'elife-40092.xml'),
 ])
-def test_get_expected_elife_article_name(archive_name, expected):
-    article_name = get_expected_elife_article_name(archive_name)
+def test_get_article_file_name(archive_name, expected, s3_client):
+    article_name = get_article_file_name(archive_name)
     assert article_name == expected
 
 
-@pytest.mark.parametrize('name', [
-    'test.zip',
-    'test_zip.zip',
-    'test!-this.zip',
-    'test-!this.zip',
-    'don\'t-do-this.zip'
-])
-def test_get_expected_elife_article_name_raises_exception_if_zip_name_is_malformed(name):
-    msg =('%s is malformed. Expected archive name to start with '
-          'any number/character, hyphen, any number/character (%s)'
-          'example: name-id.extension' % (name, r'^\w+-\w+'))
-    with pytest.raises(AssertionError) as error:
-        get_expected_elife_article_name(name)
-    assert str(error.value) == msg
+def test_get_article_file_name_raises_exception_when_article_not_in_zip(mocker, s3_client):
+    # setup
+    mocker.patch('zipfile.ZipFile.namelist', return_value=[])
+    # test
+    with pytest.raises(FileNotFoundError) as error:
+        get_article_file_name('elife-00666-vor-r1.zip')
+    assert str(error.value) == 'Unable to find a JATS article in elife-00666-vor-r1.zip'
 
 
 def test_get_article_from_previous_task(context):
@@ -80,16 +71,6 @@ def test_extract_archived_files_to_bucket(context, s3_client):
     for zipped_file in ZipFile(get_asset(file_name)).namelist():
         expected_file = '%s/%s' % (file_name.replace('.zip', ''), zipped_file)
         assert expected_file in s3_client.uploaded_files
-
-
-def test_extract_archived_files_to_bucket_raises_exception_when_article_not_in_zip(context, mocker, s3_client):
-    # setup
-    context['dag_run'].conf = {'file': 'elife-00666-vor-r1.zip'}
-    mocker.patch('zipfile.ZipFile.namelist', return_value=[])
-    # test
-    with pytest.raises(FileNotFoundError) as error:
-        extract_archived_files_to_bucket(**context)
-    assert str(error.value) == 'elife-00666.xml not in elife-00666-vor-r1.zip: []'
 
 
 @pytest.mark.parametrize('zip_file, sample_uploaded_file, num_of_tiffs', [
