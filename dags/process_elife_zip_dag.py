@@ -7,7 +7,7 @@ import re
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
-from tempfile import TemporaryFile, NamedTemporaryFile
+from tempfile import TemporaryFile
 from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
