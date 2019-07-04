@@ -40,7 +40,15 @@ SEARCH_URL = configuration.conf.get('libero', 'search_url')
 WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
 
 # namespaces
-XLINK_HREF = '{http://www.w3.org/1999/xlink}href'
+JATS_NAMESPACE = 'http://jats.nlm.nih.gov'
+JATS = {'jats': JATS_NAMESPACE}
+
+LIBERO_NAMESPACE = 'http://libero.pub'
+LIBERO = {'libero': LIBERO_NAMESPACE}
+
+XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'
+XLINK = {'xlink': XLINK_NAMESPACE}
+XLINK_HREF = '{%s}href' % XLINK_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +220,15 @@ def strip_related_article_tags_from_article_xml(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
+def add_missing_protocols(**context) -> bytes:
+    article_xml = get_article_from_previous_task(context)
+    elements = article_xml.xpath('//*[starts-with(@xlink:href, "www.")]', namespaces=XLINK)
+    for element in elements:
+        element.attrib[XLINK_HREF] = 'http://' + element.attrib[XLINK_HREF]
+
+    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+
+
 def wrap_article_in_libero_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
 
@@ -223,7 +240,7 @@ def wrap_article_in_libero_xml(**context) -> bytes:
     # add jats prefix to jats tags
     for element in article_xml.iter():
         if not element.prefix:
-            element.tag = '{http://jats.nlm.nih.gov}%s' % element.tag
+            element.tag = '{%s}%s' % (JATS_NAMESPACE, element.tag)
 
     # add xml:base attribute to article element
     root = article_xml.getroot()
@@ -234,8 +251,10 @@ def wrap_article_in_libero_xml(**context) -> bytes:
     )
 
     # create libero xml
-    doc = ElementMaker(nsmap={None: 'http://libero.pub',
-                              'jats': 'http://jats.nlm.nih.gov'})
+    nsmap = {None: LIBERO_NAMESPACE}
+    nsmap.update(JATS)
+
+    doc = ElementMaker(nsmap=nsmap)
     xml = doc.item(
         doc.meta(
             doc.id(article_id),
@@ -252,7 +271,8 @@ def send_article_to_content_service(**context) -> None:
 
     # get article id
     xpath = '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]'
-    namespaces = {'libero': 'http://libero.pub', 'jats': 'http://jats.nlm.nih.gov'}
+    namespaces = LIBERO
+    namespaces.update(JATS)
     article_id = libero_xml.xpath(xpath, namespaces=namespaces)[0].text
 
     # make PUT request to service
@@ -315,6 +335,13 @@ strip_related_article_tags = python_operator.PythonOperator(
     dag=dag
 )
 
+add_missing_protocols_task = python_operator.PythonOperator(
+    task_id='add_missing_protocols',
+    provide_context=True,
+    python_callable=add_missing_protocols,
+    dag=dag
+)
+
 wrap_article = python_operator.PythonOperator(
     task_id='wrap_article_in_libero_xml',
     provide_context=True,
@@ -340,6 +367,7 @@ extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
-strip_related_article_tags.set_downstream(wrap_article)
+strip_related_article_tags.set_downstream(add_missing_protocols_task)
+add_missing_protocols_task.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
 send_article.set_downstream(reindex_search)
