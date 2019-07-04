@@ -7,7 +7,7 @@ from dags.trigger_dag import SOURCE_BUCKET, DESTINATION_BUCKET
 def test_get_s3_client():
     conn = get_s3_client()
     assert conn._endpoint._endpoint_prefix == 's3'
-    assert conn._endpoint.host == "https://s3.eu-west-2.amazonaws.com"
+    assert conn._endpoint.host == "https://s3.amazonaws.com"
 
 
 def test_get_s3_client_using_AIRFLOW_CONN_env_variable(set_remote_logs_env_var):
