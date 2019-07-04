@@ -335,7 +335,7 @@ strip_related_article_tags = python_operator.PythonOperator(
     dag=dag
 )
 
-add_missing_protocols_task = python_operator.PythonOperator(
+add_missing_uri_schemes_task = python_operator.PythonOperator(
     task_id='add_missing_uri_schemes',
     provide_context=True,
     python_callable=add_missing_uri_schemes,
@@ -367,7 +367,7 @@ extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
-strip_related_article_tags.set_downstream(add_missing_protocols_task)
-add_missing_protocols_task.set_downstream(wrap_article)
+strip_related_article_tags.set_downstream(add_missing_uri_schemes_task)
+add_missing_uri_schemes_task.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
 send_article.set_downstream(reindex_search)
