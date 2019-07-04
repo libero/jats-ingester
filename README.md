@@ -29,8 +29,10 @@ a web interface by navigating to the following in your web browser:
 Airflow
  - `http://localhost:8080`
  
-Localstack
- - `http://localhost:8081`
+AWS S3
+ - `http://localhost:9000`
+ - username: `longkey`
+ - password: `verysecretkey`
  
  ## Running tests locally
 

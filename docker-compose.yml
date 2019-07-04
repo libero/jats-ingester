@@ -1,16 +1,15 @@
 version: "3.4"
 
 services:
-  localstack:
-    image: localstack/localstack:latest
+  s3:
+    image: minio/minio:latest
+    command: server /data
     environment:
-      - SERVICES=s3
-      - PORT_WEB_UI=8081
-      - DEFAULT_REGION=eu-west-2
-      - AWS_ACCESS_KEY_ID=foo
-      - AWS_SECRET_ACCESS_KEY=bar
+      MINIO_ACCESS_KEY: longkey
+      MINIO_SECRET_KEY: verysecretkey
+      MINIO_REGION: eu-west-2
     ports:
-      - "8081:8081"
+      - 9000:9000
 
   awscli:
     build:
@@ -22,10 +21,12 @@ services:
       - ./tests/assets/:/src/app/assets/
     command: ./create-s3-buckets.sh
     depends_on:
-      - localstack
+      - s3
     environment:
-      WAIT_HOSTS: localstack:4572, localstack:4563
-      LOCALSTACK_HOST: localstack
+      WAIT_HOSTS: s3:9000
+      AWS_ACCESS_KEY_ID: longkey
+      AWS_SECRET_ACCESS_KEY: verysecretkey
+      AWS_DEFAULT_REGION: eu-west-2
 
   db:
     image: postgres:11.2
@@ -58,7 +59,7 @@ services:
       - db
     environment:
       WAIT_HOSTS: db:5432
-      AIRFLOW_CONN_REMOTE_LOGS: http://localstack:4572?host=http://localstack:4572
+      AIRFLOW_CONN_REMOTE_LOGS: http://s3:9000?host=http://s3:9000
     volumes:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config
