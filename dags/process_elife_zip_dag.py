@@ -183,6 +183,7 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
         uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
         return list(uploaded_images)
 
+
 def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_xml = get_article_from_zip_in_s3(zip_file_name)

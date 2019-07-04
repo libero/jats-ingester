@@ -9,11 +9,14 @@ from uuid import uuid4
 
 from airflow import DAG, configuration
 from airflow.api.common.experimental.trigger_dag import trigger_dag
+from airflow.models import DagRun
 from airflow.operators import python_operator
+from airflow.settings import Session
 from airflow.utils import timezone
 
 import process_elife_zip_dag
 from aws import list_bucket_keys_iter
+from sqlalchemy import and_
 from task_helpers import get_return_value_from_previous_task
 
 SCHEDULE_INTERVAL = timedelta(minutes=1)
@@ -63,13 +66,24 @@ def run_dag_for_each_file(dag_to_trigger, **context) -> None:
     message = 'None type passed from previous task. Accepted types are set, list or tuple.'
     assert file_names is not None, message
 
+    session = Session()
+    files_triggered = []
     for file_name in file_names:
+
+        # check if a file has already been triggered for processing
+        if session.query(DagRun).filter(and_(DagRun.run_id.startswith(file_name + '_'),
+                                             DagRun.state == 'running')).first():
+            continue
+
         trigger_dag(dag_id=dag_to_trigger,
                     run_id='{}_{}'.format(file_name, uuid4()),
                     conf=json.dumps({'file': file_name}),
                     execution_date=None,
                     replace_microseconds=False)
-    logger.info('triggered %s for %s files: %s' % (dag_to_trigger, len(file_names), file_names))
+
+        files_triggered.append(file_name)
+
+    logger.info('triggered %s for %s files: %s' % (dag_to_trigger, len(files_triggered), files_triggered))
 
 
 dag = DAG('trigger_process_zip_dag',
