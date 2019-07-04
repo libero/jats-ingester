@@ -263,7 +263,11 @@ def test_send_article_to_service_raises_exception_for_non_200_response_code(cont
     test_asset_path = str(get_asset('libero-00666.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
     add_return_value_from_previous_task(return_value=article_xml, context=context)
-    requests_mock.put('http://test-service.org/items/00666/versions/1', status_code=500)
+    requests_mock.put(
+        'http://test-service.org/items/00666/versions/1',
+        status_code=500,
+        text='text sent from external service with error message'
+    )
 
     with pytest.raises(HTTPError):
         send_article_to_content_service(**context)

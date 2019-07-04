@@ -20,6 +20,7 @@ from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
 from lxml.etree import ElementTree
+from requests import HTTPError
 from wand.image import Image
 
 from aws import get_s3_client, list_bucket_keys_iter
@@ -261,7 +262,13 @@ def send_article_to_content_service(**context) -> None:
         data=etree.tostring(libero_xml, xml_declaration=True, encoding='UTF-8'),
         headers={'content-type': 'application/xml'}
     )
-    response.raise_for_status()
+
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        logger.error('%s HTTP Error= %s', response.status_code, response.text)
+        raise e
+
     logger.info('Libero wrapped article %s sent to %s with status code %s',
                 article_id,
                 SERVICE_URL,
