@@ -213,7 +213,7 @@ def test_add_missing_protocols(context):
         context=context
     )
     # test
-    return_value = pezd.add_missing_protocols(**context)
+    return_value = pezd.add_missing_uri_schemas(**context)
     xml = etree.parse(BytesIO(return_value))
     assert len(xml.xpath(xpath, namespaces=pezd.XLINK)) == 0
 

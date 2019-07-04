@@ -220,7 +220,7 @@ def strip_related_article_tags_from_article_xml(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def add_missing_protocols(**context) -> bytes:
+def add_missing_uri_schemas(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
     elements = article_xml.xpath('//*[starts-with(@xlink:href, "www.")]', namespaces=XLINK)
     for element in elements:
@@ -336,9 +336,9 @@ strip_related_article_tags = python_operator.PythonOperator(
 )
 
 add_missing_protocols_task = python_operator.PythonOperator(
-    task_id='add_missing_protocols',
+    task_id='add_missing_uri_schemas',
     provide_context=True,
-    python_callable=add_missing_protocols,
+    python_callable=add_missing_uri_schemas,
     dag=dag
 )
 
