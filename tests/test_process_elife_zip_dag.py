@@ -202,7 +202,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     assert return_value == article_xml
 
 
-def test_add_missing_protocols(context):
+def test_add_missing_uri_schemes(context):
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
@@ -213,7 +213,7 @@ def test_add_missing_protocols(context):
         context=context
     )
     # test
-    return_value = pezd.add_missing_uri_schemas(**context)
+    return_value = pezd.add_missing_uri_schemes(**context)
     xml = etree.parse(BytesIO(return_value))
     assert len(xml.xpath(xpath, namespaces=pezd.XLINK)) == 0
 
