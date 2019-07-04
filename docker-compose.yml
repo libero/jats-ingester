@@ -7,7 +7,6 @@ services:
     environment:
       MINIO_ACCESS_KEY: longkey
       MINIO_SECRET_KEY: verysecretkey
-      MINIO_REGION: eu-west-2
     ports:
       - 9000:9000
 
@@ -26,7 +25,6 @@ services:
       WAIT_HOSTS: s3:9000
       AWS_ACCESS_KEY_ID: longkey
       AWS_SECRET_ACCESS_KEY: verysecretkey
-      AWS_DEFAULT_REGION: eu-west-2
 
   db:
     image: postgres:11.2
