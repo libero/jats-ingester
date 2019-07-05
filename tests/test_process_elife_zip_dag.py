@@ -9,7 +9,7 @@ from requests.exceptions import HTTPError
 
 import dags.process_elife_zip_dag as pezd
 from tests.assets import get_asset
-from tests.helpers import add_return_value_from_previous_task
+from tests.helpers import populate_task_return_value
 
 
 @pytest.mark.parametrize('archive_name, expected_id', [
@@ -38,7 +38,7 @@ def test_get_article_from_previous_task(context):
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path))
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    populate_task_return_value(return_value=article_xml, context=context)
     # test
     returned_xml = pezd.get_article_from_previous_task(context)
     assert etree.tostring(returned_xml) == article_xml
@@ -47,7 +47,7 @@ def test_get_article_from_previous_task(context):
 @pytest.mark.parametrize('return_value', [b'', '', None])
 def test_get_article_from_previous_task_raises_exception(return_value, context):
     # setup
-    add_return_value_from_previous_task(return_value, context)
+    populate_task_return_value(return_value, context)
     message = 'Article bytes were not passed from task previous_task'
     # setup
     with pytest.raises(AssertionError) as error:
@@ -145,7 +145,7 @@ def test_add_missing_jpeg_extensions_in_article(context):
     jpg_xpath = '//*[@xlink:href="elife-40092-resp-fig1.jpg"]'
     assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
     assert len(article_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) == 0
-    add_return_value_from_previous_task(
+    populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
     )
@@ -166,7 +166,7 @@ def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(c
         assert element.attrib[pezd.XLINK_HREF].endswith('.jpg')
 
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(return_value=article_xml,context=context)
+    populate_task_return_value(return_value=article_xml, context=context)
 
     # test
     returned_xml = pezd.add_missing_jpeg_extensions_in_article(**context)
@@ -179,7 +179,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_with_related_
     article_xml = etree.parse(test_asset_path)
     xpath = '//related-article'
     assert len(article_xml.xpath(xpath)) > 0
-    add_return_value_from_previous_task(
+    populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
     )
@@ -195,7 +195,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     article_xml = etree.parse(test_asset_path)
     assert len(article_xml.xpath('//related-article')) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(article_xml, context=context)
+    populate_task_return_value(article_xml, context=context)
 
     # test
     return_value = pezd.strip_related_article_tags_from_article_xml(**context)
@@ -208,7 +208,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_with_object_id_tag(
     article_xml = etree.parse(test_asset_path)
     xpath = '//object-id'
     assert len(article_xml.xpath(xpath)) > 0
-    add_return_value_from_previous_task(
+    populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
     )
@@ -224,7 +224,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_without_object_id_t
     article_xml = etree.parse(test_asset_path)
     assert len(article_xml.xpath('//object-id')) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(article_xml, context=context)
+    populate_task_return_value(article_xml, context=context)
 
     # test
     return_value = pezd.strip_object_id_tags_from_article_xml(**context)
@@ -237,7 +237,7 @@ def test_add_missing_uri_schemes(context):
     article_xml = etree.parse(test_asset_path)
     xpath = '//*[starts-with(@xlink:href, "www.")]'
     assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
-    add_return_value_from_previous_task(
+    populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
     )
@@ -252,7 +252,7 @@ def test_wrap_article_in_libero_xml(context):
     context['dag_run'].conf = {'file': 'elife-36842-vor-r3.zip'}
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    populate_task_return_value(return_value=article_xml, context=context)
 
     # test
     libero_xml = pezd.wrap_article_in_libero_xml(**context)
@@ -286,7 +286,7 @@ def test_send_article_to_service(context, requests_mock):
     # setup
     test_asset_path = str(get_asset('libero-00666.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    populate_task_return_value(return_value=article_xml, context=context)
     session = requests_mock.put('http://test-service.org/items/00666/versions/1')
 
     # test
@@ -301,7 +301,7 @@ def test_send_article_to_service_raises_exception_for_non_200_response_code(cont
     # setup
     test_asset_path = str(get_asset('libero-00666.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
-    add_return_value_from_previous_task(return_value=article_xml, context=context)
+    populate_task_return_value(return_value=article_xml, context=context)
     requests_mock.put(
         'http://test-service.org/items/00666/versions/1',
         status_code=500,

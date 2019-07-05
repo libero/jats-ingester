@@ -61,6 +61,39 @@ def context():
 
 
 @pytest.fixture
+def branched_context():
+    """
+    Generic Airflow context fixture with branched tasks that can be passed to a
+    callable that requires context
+    """
+    with create_session() as session:
+        dag = DAGFactory()
+
+        branch_a = PythonOperatorFactory(task_id='branch_a', dag=dag)
+        branch_b = PythonOperatorFactory(task_id='branch_b', dag=dag)
+        current_task = PythonOperatorFactory(task_id='current_task', dag=dag)
+        next_task = PythonOperatorFactory(task_id='next_task', dag=dag)
+
+        branch_a.set_downstream(current_task)
+        branch_b.set_downstream(current_task)
+        # join
+        current_task.set_downstream(next_task)
+
+        dag_run = dag.create_dagrun(
+            run_id="manual__",
+            start_date=timezone.utcnow(),
+            execution_date=timezone.utcnow(),
+            state=State.RUNNING,
+            conf=None,
+            session=session
+        )
+
+    ti = dag_run.get_task_instances()[1]
+    ti.task = current_task
+    return ti.get_template_context()
+
+
+@pytest.fixture
 def s3_client(mocker):
     """
     mocks boto client
