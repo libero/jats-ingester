@@ -84,9 +84,9 @@ def get_article_from_zip_in_s3(zip_file_name: str) -> ElementTree:
     raise FileNotFoundError('Unable to find a JATS article in %s' % zip_file_name)
 
 
-def get_article_from_previous_task(context: dict) -> ElementTree:
-    article_bytes = get_return_value_from_previous_task(context)
-    previous_task = get_previous_task_name(context)
+def get_article_from_previous_task(context: dict, task_id: str = None) -> ElementTree:
+    article_bytes = get_return_value_from_previous_task(context, task_id=task_id)
+    previous_task = task_id if task_id else get_previous_task_name(context)
     message = 'Article bytes were not passed from task %s' % previous_task
     assert article_bytes and isinstance(article_bytes, bytes), message
     return etree.parse(BytesIO(article_bytes))
@@ -271,8 +271,13 @@ def wrap_article_in_libero_xml(**context) -> bytes:
     return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
 
 
-def send_article_to_content_service(**context) -> None:
-    libero_xml = get_article_from_previous_task(context)
+def send_article_to_content_service(upstream_task_id: str = None, **context) -> None:
+    """
+    :param upstream_task_id str: In the case of branching, specify which upstream
+                                 task to get return from
+    :param context: airflow context object
+    """
+    libero_xml = get_article_from_previous_task(context, task_id=upstream_task_id)
 
     # get article id
     xpath = '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]'
@@ -371,6 +376,7 @@ send_article = python_operator.PythonOperator(
     task_id='send_article_to_content_service',
     provide_context=True,
     python_callable=send_article_to_content_service,
+    op_kwargs={'upstream_task_id': 'wrap_article_in_libero_xml'},
     dag=dag
 )
 

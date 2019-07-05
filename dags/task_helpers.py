@@ -3,18 +3,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_previous_task_name(context):
+def get_previous_task_name(context: dict):
     if context['task'].upstream_list:
         return context['task'].upstream_list[0].task_id
     return None
 
 
-def get_return_value_from_previous_task(context):
-    previous_task = get_previous_task_name(context)
+def get_return_value_from_previous_task(context: dict, task_id: str = None):
+    previous_task = task_id if task_id else get_previous_task_name(context)
     return context['task_instance'].xcom_pull(task_ids=previous_task)
 
 
-def get_file_name_passed_to_dag_run_conf_file(context):
+def get_file_name_passed_to_dag_run_conf_file(context: dict):
     """
     Returns the value of the 'file' key in conf if it was supplied.
 
