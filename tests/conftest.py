@@ -69,13 +69,14 @@ def branched_context():
     with create_session() as session:
         dag = DAGFactory()
 
-        branched_previous_task = PythonOperatorFactory(task_id='branched_previous_task', dag=dag)
-        previous_task = PythonOperatorFactory(task_id='previous_task', dag=dag)
+        branch_a = PythonOperatorFactory(task_id='branch_a', dag=dag)
+        branch_b = PythonOperatorFactory(task_id='branch_b', dag=dag)
         current_task = PythonOperatorFactory(task_id='current_task', dag=dag)
         next_task = PythonOperatorFactory(task_id='next_task', dag=dag)
 
-        current_task.set_upstream(branched_previous_task)
-        current_task.set_upstream(previous_task)
+        branch_a.set_downstream(current_task)
+        branch_b.set_downstream(current_task)
+        # join
         current_task.set_downstream(next_task)
 
         dag_run = dag.create_dagrun(
