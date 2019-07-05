@@ -221,6 +221,14 @@ def strip_related_article_tags_from_article_xml(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
+def strip_object_id_tags_from_article_xml(**context) -> bytes:
+    article_xml = get_article_from_previous_task(context)
+    for element in article_xml.xpath('//object-id'):
+        element.getparent().remove(element)
+
+    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+
+
 def add_missing_uri_schemes(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
     elements = article_xml.xpath('//*[starts-with(@xlink:href, "www.")]', namespaces=XLINK)
@@ -342,6 +350,13 @@ strip_related_article_tags = python_operator.PythonOperator(
     dag=dag
 )
 
+strip_object_id_tags = python_operator.PythonOperator(
+    task_id='strip_object_id_tags_from_article_xml',
+    provide_context=True,
+    python_callable=strip_object_id_tags_from_article_xml,
+    dag=dag
+)
+
 add_missing_uri_schemes_task = python_operator.PythonOperator(
     task_id='add_missing_uri_schemes',
     provide_context=True,
@@ -374,7 +389,8 @@ extract_zip_files.set_downstream(convert_tiff_images)
 convert_tiff_images.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
-strip_related_article_tags.set_downstream(add_missing_uri_schemes_task)
+strip_related_article_tags.set_downstream(strip_object_id_tags)
+strip_object_id_tags.set_downstream(add_missing_uri_schemes_task)
 add_missing_uri_schemes_task.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
 send_article.set_downstream(reindex_search)

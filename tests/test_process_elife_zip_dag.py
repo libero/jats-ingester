@@ -202,6 +202,35 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     assert return_value == article_xml
 
 
+def test_strip_object_id_tags_from_article_xml_using_article_with_related_article_tag(context):
+    # setup
+    test_asset_path = str(get_asset('elife-36842.xml').absolute())
+    article_xml = etree.parse(test_asset_path)
+    xpath = '//object-id'
+    assert len(article_xml.xpath(xpath)) == 49
+    add_return_value_from_previous_task(
+        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
+        context=context
+    )
+    # test
+    return_value = pezd.strip_object_id_tags_from_article_xml(**context)
+    xml = etree.parse(BytesIO(return_value))
+    assert len(xml.xpath(xpath)) == 0
+
+
+def test_strip_object_id_tags_from_article_xml_using_article_without_related_article_tag(context):
+    # setup
+    test_asset_path = str(get_asset('elife-00666.xml').absolute())
+    article_xml = etree.parse(test_asset_path)
+    assert len(article_xml.xpath('//object-id')) == 0
+    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    add_return_value_from_previous_task(article_xml, context=context)
+
+    # test
+    return_value = pezd.strip_object_id_tags_from_article_xml(**context)
+    assert return_value == article_xml
+
+
 def test_add_missing_uri_schemes(context):
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
