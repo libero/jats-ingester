@@ -202,7 +202,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     assert return_value == article_xml
 
 
-def test_strip_object_id_tags_from_article_xml_using_article_with_related_article_tag(context):
+def test_strip_object_id_tags_from_article_xml_using_article_with_object_id_tag(context):
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
@@ -218,7 +218,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_with_related_articl
     assert len(xml.xpath(xpath)) == 0
 
 
-def test_strip_object_id_tags_from_article_xml_using_article_without_related_article_tag(context):
+def test_strip_object_id_tags_from_article_xml_using_article_without_object_id_tag(context):
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.parse(test_asset_path)
