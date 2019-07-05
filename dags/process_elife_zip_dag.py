@@ -380,13 +380,21 @@ reindex_search = python_operator.PythonOperator(
     dag=dag
 )
 
+
 # set task run order
+
+# branch 1
 extract_zip_files.set_downstream(convert_tiff_images)
-convert_tiff_images.set_downstream(update_tiff_references)
+convert_tiff_images.set_downstream(send_article)
+
+# branch 2
+extract_zip_files.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(strip_object_id_tags)
 strip_object_id_tags.set_downstream(add_missing_uri_schemes_task)
 add_missing_uri_schemes_task.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
+
+# join
 send_article.set_downstream(reindex_search)
