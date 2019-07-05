@@ -395,4 +395,6 @@ strip_related_article_tags.set_downstream(strip_object_id_tags)
 strip_object_id_tags.set_downstream(add_missing_uri_schemes_task)
 add_missing_uri_schemes_task.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
+
+# join
 send_article.set_downstream(reindex_search)
