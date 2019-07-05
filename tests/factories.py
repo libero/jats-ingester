@@ -39,9 +39,10 @@ class PythonOperatorFactory(factory.Factory):
     dag = factory.SubFactory(DAGFactory)
 
 
-class TaskInstanceFactory(factory.Factory):
+class TaskInstanceFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = TaskInstance
+        sqlalchemy_session = Session()
 
     task = factory.SubFactory(PythonOperatorFactory)
     execution_date = pendulum.datetime(2019, 1, 1)
