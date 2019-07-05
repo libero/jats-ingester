@@ -215,17 +215,13 @@ def add_missing_jpeg_extensions_in_article(**context) -> bytes:
 
 def strip_related_article_tags_from_article_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-    for element in article_xml.xpath('//related-article'):
-        element.getparent().remove(element)
-
+    etree.strip_tags(article_xml, 'related-article')
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
 def strip_object_id_tags_from_article_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-    for element in article_xml.xpath('//object-id'):
-        element.getparent().remove(element)
-
+    etree.strip_tags(article_xml, 'object-id')
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 

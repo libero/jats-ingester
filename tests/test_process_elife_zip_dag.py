@@ -143,7 +143,7 @@ def test_add_missing_jpeg_extensions_in_article(context):
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-40092.xml')))
     xpath = '//*[@xlink:href="elife-40092-resp-fig1"]'
     jpg_xpath = '//*[@xlink:href="elife-40092-resp-fig1.jpg"]'
-    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) == 1
+    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
     assert len(article_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) == 0
     add_return_value_from_previous_task(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
@@ -154,7 +154,7 @@ def test_add_missing_jpeg_extensions_in_article(context):
     returned_xml = pezd.add_missing_jpeg_extensions_in_article(**context)
     returned_xml = etree.parse(BytesIO(returned_xml))
     assert len(returned_xml.xpath(xpath, namespaces=pezd.XLINK)) == 0
-    assert len(returned_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) == 1
+    assert len(returned_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) > 0
 
 
 def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context):
@@ -178,7 +178,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_with_related_
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     xpath = '//related-article'
-    assert len(article_xml.xpath(xpath)) == 1
+    assert len(article_xml.xpath(xpath)) > 0
     add_return_value_from_previous_task(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
@@ -207,7 +207,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_with_related_articl
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     xpath = '//object-id'
-    assert len(article_xml.xpath(xpath)) == 49
+    assert len(article_xml.xpath(xpath)) > 0
     add_return_value_from_previous_task(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
@@ -236,7 +236,7 @@ def test_add_missing_uri_schemes(context):
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     xpath = '//*[starts-with(@xlink:href, "www.")]'
-    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) == 10
+    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
     add_return_value_from_previous_task(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
