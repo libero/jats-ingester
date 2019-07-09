@@ -88,7 +88,15 @@ def branched_context():
             session=session
         )
 
-    ti = dag_run.get_task_instances()[1]
+    ti = None
+    for instance in dag_run.get_task_instances():
+        if instance.task_id == 'current_task':
+            ti = instance
+            break
+
+    if ti is None:
+        raise ValueError('Unable to find the current task')
+
     ti.task = current_task
     return ti.get_template_context()
 
