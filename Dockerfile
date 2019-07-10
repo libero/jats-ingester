@@ -31,6 +31,8 @@ COPY scripts/ scripts/
 
 RUN chown -R airflow: .
 USER airflow
+ARG revision
+LABEL org.opencontainers.image.revision=${revision}
 
 
 FROM base as dev

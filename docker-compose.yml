@@ -43,6 +43,8 @@ services:
     build:
       target: base
       context: .
+      args:
+        revision: ${IMAGE_REVISION:-master}
     image: libero/jats-ingester:${IMAGE_TAG:-master}
     command: sh
 
