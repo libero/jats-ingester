@@ -294,9 +294,11 @@ def send_article_to_content_service(upstream_task_id: str = None, **context) -> 
 
     try:
         response.raise_for_status()
-    except HTTPError as e:
-        logger.error('%s HTTP Error= %s', response.status_code, response.text)
-        raise e
+    except HTTPError:
+        response_xml = etree.parse(BytesIO(response.content))
+        details = response_xml.find('{urn:ietf:rfc:7807}details')
+        logger.error('HTTPError: %s - %s', response.status_code, details.text)
+        raise
 
     logger.info('Libero wrapped article %s sent to %s with status code %s',
                 article_id,
