@@ -304,8 +304,16 @@ def test_send_article_to_service_raises_exception_for_non_200_response_code(cont
     populate_task_return_value(return_value=article_xml, context=context)
     requests_mock.put(
         'http://test-service.org/items/00666/versions/1',
-        status_code=500,
-        text='text sent from external service with error message'
+        status_code=400,
+        text=('<?xml version="1.0" encoding="UTF-8"?>'
+              '<problem xmlns="urn:ietf:rfc:7807" xml:lang="en">'
+              '  <status>400</status>'
+              '  <title>Failed to load asset</title>'
+              '  <details>Failed to load https://unstable-jats-ingester-expanded.'
+              '  s3.amazonaws.com/elife-00666-vor-r1/10.7554/eLife.00666.004 '
+              '  due to "404 Not Found".'
+              '  </details>'
+              '</problem>')
     )
 
     with pytest.raises(HTTPError):
