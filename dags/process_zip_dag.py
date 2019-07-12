@@ -268,8 +268,12 @@ def wrap_article_in_libero_xml(**context) -> bytes:
             element.tag = '{%s}%s' % (JATS_NAMESPACE, element.tag)
 
     # add xml:base attribute to article element
+    dag_run_file = Path(get_file_name_passed_to_dag_run_conf_file(context))
+    key = dag_run_file.stem
+    if dag_run_file.suffix == '.meca':
+        key += '/content'
+
     root = article_xml.getroot()
-    key = Path(get_file_name_passed_to_dag_run_conf_file(context)).stem
     root.set(
         '{%s}base' % XML_NAMESPACE,
         '%s/%s/' % (ARTICLE_ASSETS_URL, key)

@@ -267,7 +267,7 @@ def test_add_missing_uri_schemes(context):
 
 @pytest.mark.parametrize('zip_file, xml_file, expected_id, expected_path', [
     ('elife-36842-vor-r3.zip', 'elife-36842.xml', '36842', 'elife-36842-vor-r3/'),
-    ('biorxiv-685172.meca', 'biorxiv-685172.xml', '685172', 'biorxiv-685172/')
+    ('biorxiv-685172.meca', 'biorxiv-685172.xml', '685172', 'biorxiv-685172/content/')
 ])
 def test_wrap_article_in_libero_xml(zip_file, xml_file, expected_id, expected_path, context):
     # setup
