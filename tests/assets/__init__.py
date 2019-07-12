@@ -10,7 +10,7 @@ def get_asset(name: str) -> Path:
     return path
 
 
-def search_asset(name: str) -> List[Path]:
+def find_asset(name: str) -> List[Path]:
     paths = list(Path('.').rglob(name))
     if not paths:
         raise FileNotFoundError(name)

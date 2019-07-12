@@ -2,7 +2,7 @@ from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 
-from tests.assets import get_asset, search_asset
+from tests.assets import get_asset, find_asset
 
 
 class s3ClientMock:
@@ -28,7 +28,7 @@ class s3ClientMock:
         except FileNotFoundError:
             file_name = Path(file_name)
             path_in_zip = '/'.join(file_name.parts[1:])
-            for asset in search_asset('*%s*' % file_name.parts[0]):
+            for asset in find_asset('*%s*' % file_name.parts[0]):
                 if asset.suffix in ['.zip', '.meca']:
                     key = asset.name
                     break
