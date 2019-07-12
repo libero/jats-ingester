@@ -14,7 +14,7 @@ from airflow.operators import python_operator
 from airflow.settings import Session
 from airflow.utils import timezone
 
-import process_elife_zip_dag
+import process_zip_dag
 from aws import list_bucket_keys_iter
 from sqlalchemy import and_
 from task_helpers import get_return_value_from_previous_task
@@ -25,6 +25,8 @@ SCHEDULE_INTERVAL = timedelta(minutes=1)
 START_DATE = timezone.utcnow().replace(second=0, microsecond=0) - SCHEDULE_INTERVAL
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
+
+SUPPORTED_ARCHIVE_FORMATS = {'.zip', '.meca'}
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +44,19 @@ default_args = {
 
 def get_zip_files_to_process() -> set:
     """
-    Gets all zip file names from source bucket and all 'directory'
-    names of extracted zip files from the destination bucket, stored in separate
-    sets. Keys from the destination bucket are given the .zip extension so that
-    the two sets can be compared.
-
-    :return: set - a set of zip file names from the source bucket that are not
-    in the destination.
+    Compares the source and destination buckets and returns a set of file names
+    to process.
     """
-    incoming = {key
+    incoming = {re.sub(r'\.\w+', '', key): key
                 for key in list_bucket_keys_iter(Bucket=SOURCE_BUCKET)
-                if key.endswith('.zip')}
+                if any(key.endswith(ext) for ext in SUPPORTED_ARCHIVE_FORMATS)}
 
-    expanded = {re.sub(r'/$', '.zip', key)
+    expanded = {re.sub(r'/$', '', key)
                 for key in
                 list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Delimiter='/')}
 
-    return incoming.difference(expanded)
+    keys = set(incoming.keys()).difference(expanded)
+    return {incoming[key] for key in keys}
 
 
 def run_dag_for_each_file(dag_to_trigger, **context) -> None:
@@ -100,7 +98,7 @@ task_2 = python_operator.PythonOperator(
     task_id='run_dag_for_each_file',
     provide_context=True,
     python_callable=run_dag_for_each_file,
-    op_args=[process_elife_zip_dag.dag.dag_id],
+    op_args=[process_zip_dag.dag.dag_id],
     dag=dag
 )
 
