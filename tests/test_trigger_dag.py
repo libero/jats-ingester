@@ -36,6 +36,11 @@ from tests.factories import DagRunFactory
         {'test1.zip', 'test2.xml'},
         set(),
         {'test1.zip'}
+    ),
+    (
+        {'test1.zip', 'test2.xml', 'test3.meca'},
+        set(),
+        {'test1.zip', 'test3.meca'}
     )
 ])
 def test_identify_zip_files_to_process(mocker, source, destination, expected):

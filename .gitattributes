@@ -1,1 +1,2 @@
 *.zip filter=lfs diff=lfs merge=lfs -text
+*.meca filter=lfs diff=lfs merge=lfs -text

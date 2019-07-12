@@ -92,6 +92,21 @@ def get_article_from_previous_task(context: dict, task_id: str = None) -> Elemen
     return etree.parse(BytesIO(article_bytes))
 
 
+def get_element_text_from_xpaths(xml: ElementTree, xpaths: List[str], namespaces: dict = None) -> str:
+    """
+    Searches an lxml ElementTree object for an element using one or more xpaths
+    and returns the text of the first element found.
+    """
+    text = None
+    for xpath in xpaths:
+        elements = xml.xpath(xpath, namespaces=namespaces)
+        if elements:
+            text = elements[0].text
+            break
+    assert text is not None, 'Xpaths not found in xml: %s' % xpaths
+    return text
+
+
 def extract_file_to_s3(args: tuple) -> str:
     """
     Reads a file contained in a zip file and uploads it to a predefined bucket.
@@ -120,7 +135,7 @@ def extract_file_to_s3(args: tuple) -> str:
 def convert_image_in_s3_to_jpeg(key) -> str:
     """
     Downloads a tiff file, converts it to jpeg and uploads it to a predefined bucket.
-    This function is intended to be used in Pool of workers.
+    This function is intended to be used in a Pool of workers.
 
     :param key: cloud storage key of tiff file to download and convert to jpeg
     :return str: name of file uploaded
@@ -170,7 +185,7 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
             'thread_name_prefix': 'extracting_%s_' % zip_file_name
         }
         with ThreadPoolExecutor(**thread_options) as p:
-            prefix = zip_file_name.replace('.zip', '/')
+            prefix = re.sub(r'\.\w+$', '/', zip_file_name)
             args = [(prefix, temp_zip_file.name, f) for f in zip_file.namelist()]
             uploaded_files = p.map(extract_file_to_s3, args)
 
@@ -179,7 +194,7 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    prefix = zip_file_name.replace('.zip', '/')
+    prefix = re.sub(r'\.\w+$', '/', zip_file_name)
     tiffs = {key
              for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
              if key.endswith('.tif')}
@@ -200,6 +215,9 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]'):
         element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
         element.attrib['mime-subtype'] = 'jpeg'
+
+    for element in article_xml.xpath('//*[contains(@xlink:href, ".tif")]', namespaces=XLINK):
+        element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
@@ -238,9 +256,11 @@ def wrap_article_in_libero_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
 
     # get article id
-    article_id = article_xml.xpath(
-        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
-    )[0].text
+    xpaths = [
+        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]',
+        '/article/front/article-meta/elocation-id'
+    ]
+    article_id = get_element_text_from_xpaths(article_xml, xpaths)
 
     # add jats prefix to jats tags
     for element in article_xml.iter():
@@ -280,10 +300,13 @@ def send_article_to_content_service(upstream_task_id: str = None, **context) -> 
     libero_xml = get_article_from_previous_task(context, task_id=upstream_task_id)
 
     # get article id
-    xpath = '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]'
+    xpaths = [
+        '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]',
+        '//libero:item/jats:article/jats:front/jats:article-meta/jats:elocation-id'
+    ]
     namespaces = LIBERO
     namespaces.update(JATS)
-    article_id = libero_xml.xpath(xpath, namespaces=namespaces)[0].text
+    article_id = get_element_text_from_xpaths(libero_xml, xpaths, namespaces)
 
     # make PUT request to service
     response = requests.put(
@@ -320,7 +343,7 @@ def send_post_request_to_reindex_search_service():
 
 
 # schedule_interval is None because DAG is only run when triggered
-dag = DAG('process_elife_zip_dag',
+dag = DAG('process_zip_dag',
           default_args=default_args,
           schedule_interval=None)
 
