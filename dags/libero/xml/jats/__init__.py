@@ -8,7 +8,7 @@ from libero.xml.jats import xpaths
 JATS_NS = 'http://jats.nlm.nih.gov'
 
 # namespace maps
-JATS_MAP = {'jats': JATS_NS}
+JATS_MAP = {'jats': JATS_NS}  # for use with libero xml documents only
 
 
 def get_article_id(jats_xml: ElementTree) -> str:

@@ -27,5 +27,5 @@ def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namesp
         if elements:
             text = elements[0].text
             break
-    assert text is not None, 'Xpaths not found in xml: %s' % xpaths
+    assert text is not None, 'XPaths not found in xml: %s' % str(xpaths)
     return text
