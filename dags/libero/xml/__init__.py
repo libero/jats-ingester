@@ -16,7 +16,6 @@ XLINK_HREF = '{%s}href' % XLINK_NS
 XML_BASE = '{%s}base' % XML_NAMESPACE
 
 
-
 def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namespaces: dict = None) -> str:
     """
     Searches an lxml ElementTree object for an element using one or more xpaths
