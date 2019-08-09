@@ -1,7 +1,6 @@
 import itertools
 import re
 from io import BytesIO
-from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
 import pytest
@@ -9,6 +8,12 @@ from lxml import etree
 from requests.exceptions import HTTPError
 
 import dags.process_zip_dag as pezd
+from dags.libero.xml import jats, XLINK_MAP, libero, XML_BASE
+from dags.libero.xml.xpaths import (
+    XLINK_HREF_CONTAINS_TIF,
+    XLINK_HREF_CONTAINS_JPG,
+    XLINK_HREF_STARTS_WITH_WWW
+)
 from tests.assets import get_asset
 from tests.helpers import populate_task_return_value
 
@@ -20,9 +25,7 @@ from tests.helpers import populate_task_return_value
 ])
 def test_get_article_from_zip_in_s3(archive_name, expected_id, s3_client):
     article = pezd.get_article_from_zip_in_s3(archive_name)
-    article_id = article.xpath(
-        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]'
-    )[0].text
+    article_id = article.xpath(jats.xpaths.ARTICLE_ID_BY_PUBLISHER_ID)[0].text
     assert article_id == expected_id
 
 
@@ -119,14 +122,14 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_with_tiff_refe
     # check the test asset contains tiff references
     test_asset_path = str(get_asset(zip_file).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read(xml_file)))
-    tiff_xpath = '//*[@mimetype="image" and @mime-subtype="tiff"]'
-    jpeg_xpath = '//*[@mimetype="image" and @mime-subtype="jpeg"]'
+    tiff_xpath = jats.xpaths.IMAGE_BY_TIFF_MIMETYPE
+    jpeg_xpath = jats.xpaths.IMAGE_BY_JPEG_MIMETYPE
     kwargs = {}
     tiffs = article_xml.xpath(tiff_xpath, **kwargs)
     if not tiffs:
-        tiff_xpath = '//*[contains(@xlink:href, ".tif")]'
-        jpeg_xpath = '//*[contains(@xlink:href, ".jpg")]'
-        kwargs = {'namespaces': pezd.XLINK}
+        tiff_xpath = XLINK_HREF_CONTAINS_TIF
+        jpeg_xpath = XLINK_HREF_CONTAINS_JPG
+        kwargs = {'namespaces': XLINK_MAP}
         tiffs = article_xml.xpath(tiff_xpath, **kwargs)
     assert len(tiffs) == number_of_images
     assert len(article_xml.xpath(jpeg_xpath, **kwargs)) == 0
@@ -146,7 +149,7 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_r
     # check the test asset does not contain tiff references
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
-    assert len(article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]')) == 0
+    assert len(article_xml.xpath(jats.xpaths.IMAGE_BY_TIFF_MIMETYPE)) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
     # test
@@ -161,8 +164,8 @@ def test_add_missing_jpeg_extensions_in_article(context):
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-40092.xml')))
     xpath = '//*[@xlink:href="elife-40092-resp-fig1"]'
     jpg_xpath = '//*[@xlink:href="elife-40092-resp-fig1.jpg"]'
-    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
-    assert len(article_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) == 0
+    assert len(article_xml.xpath(xpath, namespaces=XLINK_MAP)) > 0
+    assert len(article_xml.xpath(jpg_xpath, namespaces=XLINK_MAP)) == 0
     populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
@@ -171,8 +174,8 @@ def test_add_missing_jpeg_extensions_in_article(context):
     # test
     returned_xml = pezd.add_missing_jpeg_extensions_in_article(**context)
     returned_xml = etree.parse(BytesIO(returned_xml))
-    assert len(returned_xml.xpath(xpath, namespaces=pezd.XLINK)) == 0
-    assert len(returned_xml.xpath(jpg_xpath, namespaces=pezd.XLINK)) > 0
+    assert len(returned_xml.xpath(xpath, namespaces=XLINK_MAP)) == 0
+    assert len(returned_xml.xpath(jpg_xpath, namespaces=XLINK_MAP)) > 0
 
 
 def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context):
@@ -180,7 +183,7 @@ def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(c
     zip_file_name = 'elife-00666-vor-r1.zip'
     test_asset_path = str(get_asset(zip_file_name).absolute())
     article_xml = etree.parse(BytesIO(ZipFile(test_asset_path).read('elife-00666.xml')))
-    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
+    for element in article_xml.xpath(jats.xpaths.IMAGE_BY_JPEG_MIMETYPE):
         assert element.attrib[pezd.XLINK_HREF].endswith('.jpg')
 
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
@@ -195,7 +198,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_with_related_
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
-    xpath = '//related-article'
+    xpath = jats.xpaths.RELATED_ARTICLE
     assert len(article_xml.xpath(xpath)) > 0
     populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
@@ -211,7 +214,7 @@ def test_strip_related_article_tags_from_article_xml_using_article_without_relat
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.parse(test_asset_path)
-    assert len(article_xml.xpath('//related-article')) == 0
+    assert len(article_xml.xpath(jats.xpaths.RELATED_ARTICLE)) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
     populate_task_return_value(article_xml, context=context)
 
@@ -224,7 +227,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_with_object_id_tag(
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
-    xpath = '//object-id'
+    xpath = jats.xpaths.OBJECT_ID
     assert len(article_xml.xpath(xpath)) > 0
     populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
@@ -240,7 +243,7 @@ def test_strip_object_id_tags_from_article_xml_using_article_without_object_id_t
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.parse(test_asset_path)
-    assert len(article_xml.xpath('//object-id')) == 0
+    assert len(article_xml.xpath(jats.xpaths.OBJECT_ID)) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
     populate_task_return_value(article_xml, context=context)
 
@@ -253,8 +256,8 @@ def test_add_missing_uri_schemes(context):
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
-    xpath = '//*[starts-with(@xlink:href, "www.")]'
-    assert len(article_xml.xpath(xpath, namespaces=pezd.XLINK)) > 0
+    xpath = XLINK_HREF_STARTS_WITH_WWW
+    assert len(article_xml.xpath(xpath, namespaces=XLINK_MAP)) > 0
     populate_task_return_value(
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
@@ -262,7 +265,7 @@ def test_add_missing_uri_schemes(context):
     # test
     return_value = pezd.add_missing_uri_schemes(**context)
     xml = etree.parse(BytesIO(return_value))
-    assert len(xml.xpath(xpath, namespaces=pezd.XLINK)) == 0
+    assert len(xml.xpath(xpath, namespaces=XLINK_MAP)) == 0
 
 
 @pytest.mark.parametrize('zip_file, xml_file, expected_id, expected_path', [
@@ -280,19 +283,19 @@ def test_wrap_article_in_libero_xml(zip_file, xml_file, expected_id, expected_pa
     libero_xml = pezd.wrap_article_in_libero_xml(**context)
     xml = etree.parse(BytesIO(libero_xml))
 
-    namespaces = pezd.LIBERO
-    namespaces.update(pezd.JATS)
-    article_id = xml.xpath('//libero:item/libero:meta/libero:id', namespaces=namespaces)[0]
+    namespaces = libero.LIBERO_MAP
+    namespaces.update(jats.JATS_MAP)
+    article_id = xml.xpath(libero.xpaths.ID, namespaces=namespaces)[0]
     assert article_id.text == expected_id
 
-    service = xml.xpath('//libero:item/libero:meta/libero:service', namespaces=namespaces)[0]
+    service = xml.xpath(libero.xpaths.SERVICE, namespaces=namespaces)[0]
     assert service.text == 'test-service'
 
-    article = xml.xpath('//libero:item/jats:article', namespaces=namespaces)[0]
+    article = xml.xpath(libero.xpaths.JATS_ARTICLE, namespaces=namespaces)[0]
     assert article is not None
     assert len(article.getchildren()) > 0
 
-    xml_base = article.attrib['{%s}base' % XML_NAMESPACE]
+    xml_base = article.attrib[XML_BASE]
     expected = 'https://test-expanded-bucket.test.com/' + expected_path
     assert xml_base == expected
 

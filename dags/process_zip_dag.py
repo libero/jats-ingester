@@ -10,7 +10,6 @@ from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryFile, NamedTemporaryFile
 from typing import List
-from xml.dom import XML_NAMESPACE
 from zipfile import ZipFile
 
 import requests
@@ -24,11 +23,14 @@ from requests import HTTPError
 from wand.image import Image
 
 from aws import get_s3_client, list_bucket_keys_iter
+from libero.xml import jats, libero, XLINK_HREF, XLINK_MAP, XML_BASE
+from libero.xml.xpaths import XLINK_HREF_CONTAINS_TIF, XLINK_HREF_STARTS_WITH_WWW
 from task_helpers import (
     get_file_name_passed_to_dag_run_conf_file,
     get_previous_task_name,
     get_return_value_from_previous_task
 )
+
 
 # settings
 ARTICLE_ASSETS_URL = configuration.conf.get('libero', 'article_assets_url')
@@ -39,17 +41,6 @@ SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
 WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
-
-# namespaces
-JATS_NAMESPACE = 'http://jats.nlm.nih.gov'
-JATS = {'jats': JATS_NAMESPACE}
-
-LIBERO_NAMESPACE = 'http://libero.pub'
-LIBERO = {'libero': LIBERO_NAMESPACE}
-
-XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'
-XLINK = {'xlink': XLINK_NAMESPACE}
-XLINK_HREF = '{%s}href' % XLINK_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +69,7 @@ def get_article_from_zip_in_s3(zip_file_name: str) -> ElementTree:
         for zipped_file in zip_file.namelist():
             if zipped_file.endswith('.xml'):
                 xml = etree.parse(BytesIO(zip_file.read(zipped_file)))
-                if xml.xpath('/article'):
+                if xml.xpath(jats.xpaths.ARTICLE):
                     return xml
 
     raise FileNotFoundError('Unable to find a JATS article in %s' % zip_file_name)
@@ -90,21 +81,6 @@ def get_article_from_previous_task(context: dict, task_id: str = None) -> Elemen
     message = 'Article bytes were not passed from task %s' % previous_task
     assert article_bytes and isinstance(article_bytes, bytes), message
     return etree.parse(BytesIO(article_bytes))
-
-
-def get_element_text_from_xpaths(xml: ElementTree, xpaths: List[str], namespaces: dict = None) -> str:
-    """
-    Searches an lxml ElementTree object for an element using one or more xpaths
-    and returns the text of the first element found.
-    """
-    text = None
-    for xpath in xpaths:
-        elements = xml.xpath(xpath, namespaces=namespaces)
-        if elements:
-            text = elements[0].text
-            break
-    assert text is not None, 'Xpaths not found in xml: %s' % xpaths
-    return text
 
 
 def extract_file_to_s3(args: tuple) -> str:
@@ -212,11 +188,11 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
     article_xml = get_article_from_zip_in_s3(zip_file_name)
 
-    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="tiff"]'):
+    for element in article_xml.xpath(jats.xpaths.IMAGE_BY_TIFF_MIMETYPE):
         element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
         element.attrib['mime-subtype'] = 'jpeg'
 
-    for element in article_xml.xpath('//*[contains(@xlink:href, ".tif")]', namespaces=XLINK):
+    for element in article_xml.xpath(XLINK_HREF_CONTAINS_TIF, namespaces=XLINK_MAP):
         element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
 
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
@@ -224,7 +200,7 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
 
 def add_missing_jpeg_extensions_in_article(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-    for element in article_xml.xpath('//*[@mimetype="image" and @mime-subtype="jpeg"]'):
+    for element in article_xml.xpath(jats.xpaths.IMAGE_BY_JPEG_MIMETYPE):
         if not element.attrib[XLINK_HREF].endswith('.jpg'):
             element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF] + '.jpg'
 
@@ -245,7 +221,7 @@ def strip_object_id_tags_from_article_xml(**context) -> bytes:
 
 def add_missing_uri_schemes(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-    elements = article_xml.xpath('//*[starts-with(@xlink:href, "www.")]', namespaces=XLINK)
+    elements = article_xml.xpath(XLINK_HREF_STARTS_WITH_WWW, namespaces=XLINK_MAP)
     for element in elements:
         element.attrib[XLINK_HREF] = 'http://' + element.attrib[XLINK_HREF]
 
@@ -254,18 +230,12 @@ def add_missing_uri_schemes(**context) -> bytes:
 
 def wrap_article_in_libero_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
-
-    # get article id
-    xpaths = [
-        '/article/front/article-meta/article-id[@pub-id-type="publisher-id"]',
-        '/article/front/article-meta/elocation-id'
-    ]
-    article_id = get_element_text_from_xpaths(article_xml, xpaths)
+    article_id = jats.get_article_id(article_xml)
 
     # add jats prefix to jats tags
     for element in article_xml.iter():
         if not element.prefix:
-            element.tag = '{%s}%s' % (JATS_NAMESPACE, element.tag)
+            element.tag = '{%s}%s' % (jats.JATS_NS, element.tag)
 
     # add xml:base attribute to article element
     dag_run_file = Path(get_file_name_passed_to_dag_run_conf_file(context))
@@ -275,13 +245,13 @@ def wrap_article_in_libero_xml(**context) -> bytes:
 
     root = article_xml.getroot()
     root.set(
-        '{%s}base' % XML_NAMESPACE,
+        XML_BASE,
         '%s/%s/' % (ARTICLE_ASSETS_URL, key)
     )
 
     # create libero xml
-    nsmap = {None: LIBERO_NAMESPACE}
-    nsmap.update(JATS)
+    nsmap = {None: libero.LIBERO_NS}
+    nsmap.update(jats.JATS_MAP)
 
     doc = ElementMaker(nsmap=nsmap)
     xml = doc.item(
@@ -302,15 +272,7 @@ def send_article_to_content_service(upstream_task_id: str = None, **context) -> 
     :param context: airflow context object
     """
     libero_xml = get_article_from_previous_task(context, task_id=upstream_task_id)
-
-    # get article id
-    xpaths = [
-        '//libero:item/jats:article/jats:front/jats:article-meta/jats:article-id[@pub-id-type="publisher-id"]',
-        '//libero:item/jats:article/jats:front/jats:article-meta/jats:elocation-id'
-    ]
-    namespaces = LIBERO
-    namespaces.update(JATS)
-    article_id = get_element_text_from_xpaths(libero_xml, xpaths, namespaces)
+    article_id = libero.get_content_id(libero_xml)
 
     # make PUT request to service
     response = requests.put(
