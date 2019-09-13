@@ -26,6 +26,14 @@ services:
       AWS_ACCESS_KEY_ID: longkey
       AWS_SECRET_ACCESS_KEY: verysecretkey
 
+  message-bus:
+    image: redis:5.0.5-alpine
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "6379"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
   db:
     image: postgres:11.2
     environment:
@@ -58,7 +66,7 @@ services:
       - app
       - db
     environment:
-      WAIT_HOSTS: db:5432
+      WAIT_HOSTS: db:5432, message-bus:6379
       AIRFLOW_CONN_REMOTE_LOGS: http://s3:9000?host=http://s3:9000
     volumes:
       - ./dags:/airflow/dags
