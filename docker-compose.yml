@@ -30,9 +30,6 @@ services:
     image: redis:5.0.5-alpine
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "6379"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
   db:
     image: postgres:11.2
@@ -42,9 +39,6 @@ services:
       POSTGRES_DB: airflow-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
 # only used to tag the base image ready to be uploaded to dockerhub
   app:
@@ -80,9 +74,6 @@ services:
       - 8080:8080
     healthcheck:
       test: ["CMD-SHELL", "python ./scripts/airflow_webserver_healthcheck.py"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
   airflow_scheduler:
     <<: *airflow
