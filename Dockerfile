@@ -27,6 +27,13 @@ RUN pip install -U pip \
     && rm -rf /tmp/*
 
 COPY ./dags ${AIRFLOW_HOME}/dags
+
+# add maintenance dags
+ADD https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/clear-missing-dags/airflow-clear-missing-dags.py \
+    https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/db-cleanup/airflow-db-cleanup.py \
+    https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/kill-halted-tasks/airflow-kill-halted-tasks.py \
+    ${AIRFLOW_HOME}/dags/maintenance-dags/
+
 COPY scripts/ scripts/
 
 RUN chown -R airflow: .
