@@ -34,9 +34,6 @@ services:
       POSTGRES_DB: airflow-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
 # only used to tag the base image ready to be uploaded to dockerhub
   app:
@@ -48,6 +45,11 @@ services:
     image: libero/jats-ingester:${IMAGE_TAG:-master}
     command: sh
 
+  airflow-broker:
+    image: redis:5.0.5-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+
   airflow_initdb:
     &airflow
     build:
@@ -57,8 +59,9 @@ services:
     depends_on:
       - app
       - db
+      - airflow-broker
     environment:
-      WAIT_HOSTS: db:5432
+      WAIT_HOSTS: db:5432, airflow-broker:6379
       AIRFLOW_CONN_REMOTE_LOGS: http://s3:9000?host=http://s3:9000
     volumes:
       - ./dags:/airflow/dags
@@ -72,9 +75,6 @@ services:
       - 8080:8080
     healthcheck:
       test: ["CMD-SHELL", "python ./scripts/airflow_webserver_healthcheck.py"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
 
   airflow_scheduler:
     <<: *airflow
