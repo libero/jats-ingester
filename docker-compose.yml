@@ -26,11 +26,6 @@ services:
       AWS_ACCESS_KEY_ID: longkey
       AWS_SECRET_ACCESS_KEY: verysecretkey
 
-  message-bus:
-    image: redis:5.0.5-alpine
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "6379"]
-
   db:
     image: postgres:11.2
     environment:
@@ -50,6 +45,11 @@ services:
     image: libero/jats-ingester:${IMAGE_TAG:-master}
     command: sh
 
+  airflow-broker:
+    image: redis:5.0.5-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+
   airflow_initdb:
     &airflow
     build:
@@ -59,8 +59,9 @@ services:
     depends_on:
       - app
       - db
+      - airflow-broker
     environment:
-      WAIT_HOSTS: db:5432, message-bus:6379
+      WAIT_HOSTS: db:5432, airflow-broker:6379
       AIRFLOW_CONN_REMOTE_LOGS: http://s3:9000?host=http://s3:9000
     volumes:
       - ./dags:/airflow/dags
