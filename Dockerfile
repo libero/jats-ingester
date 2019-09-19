@@ -19,6 +19,7 @@ RUN pip install -U pip \
     && apt-get install -yq --no-install-recommends \
         build-essential \
         libmagickwand-dev \
+        procps \
     && useradd -s /bin/bash -d ${AIRFLOW_HOME} airflow \
     && pip install --no-cache-dir -r requirements/base.txt \
     && apt-get remove --purge --autoremove -yq build-essential \
@@ -29,9 +30,9 @@ RUN pip install -U pip \
 COPY ./dags ${AIRFLOW_HOME}/dags
 
 # add maintenance dags
-ADD https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/clear-missing-dags/airflow-clear-missing-dags.py \
-    https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/db-cleanup/airflow-db-cleanup.py \
-    https://raw.githubusercontent.com/teamclairvoyant/airflow-maintenance-dags/master/kill-halted-tasks/airflow-kill-halted-tasks.py \
+ADD https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/clear-missing-dags/airflow-clear-missing-dags.py \
+    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/db-cleanup/airflow-db-cleanup.py \
+    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/kill-halted-tasks/airflow-kill-halted-tasks.py \
     ${AIRFLOW_HOME}/dags/maintenance-dags/
 
 COPY scripts/ scripts/
