@@ -30,9 +30,9 @@ RUN pip install -U pip \
 COPY ./dags ${AIRFLOW_HOME}/dags
 
 # add maintenance dags
-ADD https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/clear-missing-dags/airflow-clear-missing-dags.py \
-    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/db-cleanup/airflow-db-cleanup.py \
-    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/master/kill-halted-tasks/airflow-kill-halted-tasks.py \
+ADD https://raw.githubusercontent.com/libero/airflow-maintenance-dags/bfb622011e76b2488118b42cbbbd7e7bd46ced7e/clear-missing-dags/airflow-clear-missing-dags.py \
+    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/bfb622011e76b2488118b42cbbbd7e7bd46ced7e/db-cleanup/airflow-db-cleanup.py \
+    https://raw.githubusercontent.com/libero/airflow-maintenance-dags/bfb622011e76b2488118b42cbbbd7e7bd46ced7e/kill-halted-tasks/airflow-kill-halted-tasks.py \
     ${AIRFLOW_HOME}/dags/maintenance-dags/
 
 COPY scripts/ scripts/
