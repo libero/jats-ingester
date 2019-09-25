@@ -1,7 +1,7 @@
 import pytest
 from lxml import etree
 
-from dags.libero.xml.jats import get_article_id
+from dags.libero.xml.jats import get_article_id, get_categories
 
 
 @pytest.mark.parametrize('xml_string', [
@@ -53,3 +53,15 @@ def test_get_article_id_raises_exception_when_id_not_found():
     xml = etree.XML('<article><front><article-meta></article-meta></front></article>')
     with pytest.raises(AssertionError):
         get_article_id(xml)
+
+
+@pytest.mark.parametrize('xml_string', [])
+def test_get_categories(xml_string):
+    xml = etree.XML(xml_string)
+    assert get_categories(xml) == '00666'
+
+
+def test_get_categories_raises_exception_when_id_not_found():
+    xml = etree.XML('<article><front><article-meta></article-meta></front></article>')
+    with pytest.raises(AssertionError):
+        get_categories(xml)

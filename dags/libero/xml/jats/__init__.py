@@ -1,3 +1,5 @@
+from typing import List
+
 from lxml.etree import ElementTree
 
 from libero.xml import get_element_text_from_xpaths
@@ -17,5 +19,12 @@ def get_article_id(jats_xml: ElementTree) -> str:
                   xpaths.ARTICLE_ID_NOT_BY_PMID_PMC_DOI,
                   xpaths.ARTICLE_ID_BY_ELOCATION_ID,
                   xpaths.ARTICLE_ID_BY_DOI)
+
+    return get_element_text_from_xpaths(jats_xml, strategies)
+
+
+def get_categories(jats_xml: ElementTree) -> List[str]:
+
+    strategies = (xpaths.CATEGORIES)
 
     return get_element_text_from_xpaths(jats_xml, strategies)

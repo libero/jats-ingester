@@ -8,5 +8,7 @@ ARTICLE_ID_NOT_BY_PMID_PMC_DOI = '/article/front/article-meta/article-id[not(@pu
 ARTICLE_ID_BY_ELOCATION_ID = '/article/front/article-meta/elocation-id'
 ARTICLE_ID_BY_DOI = '/article/front/article-meta/article-id[@pub-id-type="doi"]'
 
+CATEGORIES = '//*:article-categories/*:subj-group[not(@subj-group-type="heading")]/*:subject[1]'
+
 IMAGE_BY_TIFF_MIMETYPE = '//*[@mimetype="image" and @mime-subtype="tiff"]'
 IMAGE_BY_JPEG_MIMETYPE = '//*[@mimetype="image" and @mime-subtype="jpeg"]'
