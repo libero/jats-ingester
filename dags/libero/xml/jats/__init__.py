@@ -20,11 +20,11 @@ def get_article_id(jats_xml: ElementTree) -> str:
                   xpaths.ARTICLE_ID_BY_ELOCATION_ID,
                   xpaths.ARTICLE_ID_BY_DOI)
 
-    return get_element_text_from_xpaths(jats_xml, strategies)
+    return get_element_text_from_xpaths(jats_xml, strategies)[0]
 
 
 def get_categories(jats_xml: ElementTree) -> List[str]:
 
-    strategies = (xpaths.CATEGORIES)
+    strategies = (xpaths.CATEGORIES_BY_SUBJECT_GROUP,)
 
     return get_element_text_from_xpaths(jats_xml, strategies)

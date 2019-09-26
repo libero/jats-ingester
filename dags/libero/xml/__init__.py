@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List
 from xml.dom import XML_NAMESPACE
 
 from lxml.etree import ElementTree
@@ -16,16 +16,15 @@ XLINK_HREF = '{%s}href' % XLINK_NS
 XML_BASE = '{%s}base' % XML_NAMESPACE
 
 
-def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namespaces: dict = None) -> str:
+def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namespaces: dict = None) -> List[str]:
     """
-    Searches an lxml ElementTree object for an element using one or more xpaths
-    and returns the text of the first element found.
+    Searches an lxml ElementTree object for all elements xpaths
+    and returns a list of text from each element found.
     """
-    text = None
+    elements = []
     for xpath in xpaths:
-        elements = xml.xpath(xpath, namespaces=namespaces)
-        if elements:
-            text = elements[0].text
-            break
-    assert text is not None, 'XPaths not found in xml: %s' % str(xpaths)
-    return text
+        results = xml.xpath(xpath, namespaces=namespaces)
+        elements.extend(results)
+    elements = [e.text.strip() for e in elements if e.text is not None]
+    assert elements, 'XPaths not found in xml: %s' % str(xpaths)
+    return elements

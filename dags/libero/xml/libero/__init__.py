@@ -16,4 +16,4 @@ def get_content_id(jats_xml: ElementTree) -> str:
         xml=jats_xml,
         xpaths=[xpaths.ID],
         namespaces=LIBERO_MAP
-    )
+    )[0]
