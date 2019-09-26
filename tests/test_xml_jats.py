@@ -169,7 +169,7 @@ def test_get_categories(xml_string, expected):
     assert get_categories(xml) == expected
 
 
-def test_get_categories_raises_exception_when_id_not_found():
+def test_get_categories_raises_exception_when_categories_not_found():
     xml_string = (
         '<article>'
         '  <front>'
