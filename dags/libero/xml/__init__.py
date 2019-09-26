@@ -24,7 +24,7 @@ def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namesp
     elements = []
     for xpath in xpaths:
         results = xml.xpath(xpath, namespaces=namespaces)
-        elements.extend(results)
-    elements = [e.text.strip() for e in elements if e.text is not None]
+        elements.extend([e.text.strip() for e in results if e.text is not None])
+
     assert elements, 'XPaths not found in xml: %s' % str(xpaths)
     return elements
