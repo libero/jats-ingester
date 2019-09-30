@@ -28,7 +28,7 @@ def get_element_text_from_xpaths(xml: ElementTree, xpaths: Iterable[str], namesp
         results = [e.text.strip()
                    if e.text is not None else e.xpath('string()').strip()
                    for e in results]
-        # remove empty strings from list
+        # do not add empty strings to the list of elements text
         elements_text.extend([r for r in results if r])
 
     assert elements_text, 'XPaths not found in xml: %s' % str(xpaths)
