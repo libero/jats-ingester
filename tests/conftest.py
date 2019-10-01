@@ -126,5 +126,5 @@ def set_remote_logs_env_var():
 
 @pytest.fixture
 def mocked_responses():
-    with responses.RequestsMock() as response:
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as response:
         yield response

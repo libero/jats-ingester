@@ -1,3 +1,5 @@
+import json
+
 import itertools
 import re
 from io import BytesIO
@@ -267,6 +269,42 @@ def test_add_missing_uri_schemes(context):
     return_value = pezd.add_missing_uri_schemes(**context)
     xml = etree.parse(BytesIO(return_value))
     assert len(xml.xpath(xpath, namespaces=XLINK_MAP)) == 0
+
+
+@pytest.mark.parametrize('xml_file, article_id, category_ids', [
+    ('elife-00666.xml', '00666', ['0']),
+    ('biorxiv-685172.xml', '685172', ['0', '1'])
+])
+def test_send_article_info_to_details_service(xml_file, article_id, category_ids, context, mocked_responses):
+    # setup
+    test_asset_path = str(get_asset(xml_file).absolute())
+    article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
+    populate_task_return_value(return_value=article_xml, context=context)
+
+    successful_response_obj = {'items': [{'id': '0', 'name': 'Category 0'}]}
+    mocked_responses.add(responses.GET,
+                         'http://test-details-service/catgories?name=Research+Article',
+                         json=successful_response_obj)
+    mocked_responses.add(responses.GET,
+                         'http://test-details-service/catgories?name=Regular+Article',
+                         json=successful_response_obj)
+    mocked_responses.add(responses.GET,
+                         'http://test-details-service/catgories?name=Genetics',
+                         json={'items': []})
+    mocked_responses.add(responses.POST,
+                         'http://test-details-service/categories',
+                         status=201,
+                         headers={'Location': '/categories/1'})
+    mocked_responses.add(responses.PUT,
+                         'http://test-details-service/articles/%s' % article_id,
+                         status=201)
+
+    # test
+    pezd.send_article_info_to_details_service(**context)
+    last_response = mocked_responses.calls[-1].response
+    assert last_response.status_code == 201
+    last_request = mocked_responses.calls[-1].request
+    assert json.loads(last_request.body) == {'categories': category_ids}
 
 
 @pytest.mark.parametrize('zip_file, xml_file, expected_id, expected_path', [

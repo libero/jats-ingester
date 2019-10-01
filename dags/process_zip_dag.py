@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryFile, NamedTemporaryFile
 from typing import List
+from urllib.parse import quote_plus
 from zipfile import ZipFile
 
 import requests
@@ -41,6 +42,7 @@ SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
 WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
+DETAILS_SERVICE_URL = configuration.conf.get('libero', 'details_service_url')
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +230,38 @@ def add_missing_uri_schemes(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
+def send_article_info_to_details_service(**context) -> bytes:
+    article_xml = get_article_from_previous_task(context)
+    article_id = jats.get_article_id(article_xml)
+
+    categories_in_xml = jats.get_categories(article_xml)
+    category_ids = []
+    for category in categories_in_xml:
+        response = requests.get(
+            '%s/catgories?name=%s' % (DETAILS_SERVICE_URL, quote_plus(category))
+        )
+        response.raise_for_status()
+
+        results = response.json().get('items')
+        if results:
+            category_ids.append(results[0]['id'])
+        else:
+            response = requests.post(
+                '%s/categories' % DETAILS_SERVICE_URL,
+                json={'name': category}
+            )
+            response.raise_for_status()
+            category_ids.append(Path(response.headers['Location']).stem)
+
+    response = requests.put(
+        '%s/articles/%s' % (DETAILS_SERVICE_URL, article_id),
+        json={'categories': category_ids},
+    )
+    response.raise_for_status()
+
+    return article_xml
+
+
 def wrap_article_in_libero_xml(**context) -> bytes:
     article_xml = get_article_from_previous_task(context)
     article_id = jats.get_article_id(article_xml)
@@ -362,6 +396,13 @@ add_missing_uri_schemes_task = python_operator.PythonOperator(
     dag=dag
 )
 
+send_article_info = python_operator.PythonOperator(
+    task_id='send_article_info_to_details_service',
+    provide_context=True,
+    python_callable=send_article_info_to_details_service,
+    dag=dag
+)
+
 wrap_article = python_operator.PythonOperator(
     task_id='wrap_article_in_libero_xml',
     provide_context=True,
@@ -396,7 +437,8 @@ update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(strip_object_id_tags)
 strip_object_id_tags.set_downstream(add_missing_uri_schemes_task)
-add_missing_uri_schemes_task.set_downstream(wrap_article)
+add_missing_uri_schemes_task.set_downstream(send_article_info)
+send_article_info.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
 
 # join
