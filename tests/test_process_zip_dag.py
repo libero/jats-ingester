@@ -4,6 +4,7 @@ from io import BytesIO
 from zipfile import ZipFile
 
 import pytest
+import responses
 from lxml import etree
 from requests.exceptions import HTTPError
 
@@ -311,30 +312,32 @@ def test_wrap_article_in_libero_xml_raises_exception_if_xml_path_not_returned_by
     ('libero-00666.xml', '00666'),  # elife
     ('libero-685172.xml', '685172')  # biorxiv
 ])
-def test_send_article_to_service(xml_file, article_id, context, requests_mock):
+def test_send_article_to_service(xml_file, article_id, context, mocked_responses):
     # setup
     test_asset_path = str(get_asset(xml_file).absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
     populate_task_return_value(return_value=article_xml, context=context)
-    session = requests_mock.put('http://test-service.org/items/%s/versions/1' % article_id)
+    mocked_responses.add(responses.PUT, 'http://test-service.org/items/%s/versions/1' % article_id)
 
     # test
     pezd.send_article_to_content_service(**context)
-    response = session._responses[0].get_response(session.last_request)
+    response = mocked_responses.calls[-1].response
     assert response.status_code == 200
-    request_data = bytes(session.last_request.text, encoding='UTF-8')
+
+    request_data = mocked_responses.calls[-1].request.body
     etree.parse(BytesIO(request_data))  # raises exception if cannot parse xml
 
 
-def test_send_article_to_service_raises_exception_for_non_200_response_code(context, requests_mock):
+def test_send_article_to_service_raises_exception_for_non_200_response_code(context, mocked_responses):
     # setup
     test_asset_path = str(get_asset('libero-00666.xml').absolute())
     article_xml = etree.tostring(etree.parse(test_asset_path), xml_declaration=True, encoding='UTF-8')
     populate_task_return_value(return_value=article_xml, context=context)
-    requests_mock.put(
+    mocked_responses.add(
+        responses.PUT,
         'http://test-service.org/items/00666/versions/1',
-        status_code=400,
-        text=('<?xml version="1.0" encoding="UTF-8"?>'
+        status=400,
+        body=('<?xml version="1.0" encoding="UTF-8"?>'
               '<problem xmlns="urn:ietf:rfc:7807" xml:lang="en">'
               '  <status>400</status>'
               '  <title>Failed to load asset</title>'
