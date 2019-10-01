@@ -283,13 +283,13 @@ def test_send_article_info_to_details_service(xml_file, article_id, category_ids
 
     successful_response_obj = {'items': [{'id': '0', 'name': 'Category 0'}]}
     mocked_responses.add(responses.GET,
-                         'http://test-details-service/catgories?name=Research+Article',
+                         'http://test-details-service/categories?name=Research+Article',
                          json=successful_response_obj)
     mocked_responses.add(responses.GET,
-                         'http://test-details-service/catgories?name=Regular+Article',
+                         'http://test-details-service/categories?name=Regular+Article',
                          json=successful_response_obj)
     mocked_responses.add(responses.GET,
-                         'http://test-details-service/catgories?name=Genetics',
+                         'http://test-details-service/categories?name=Genetics',
                          json={'items': []})
     mocked_responses.add(responses.POST,
                          'http://test-details-service/categories',

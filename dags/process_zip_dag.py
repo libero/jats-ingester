@@ -238,7 +238,7 @@ def send_article_info_to_details_service(**context) -> bytes:
     category_ids = []
     for category in categories_in_xml:
         response = requests.get(
-            '%s/catgories?name=%s' % (DETAILS_SERVICE_URL, quote_plus(category))
+            '%s/categories?name=%s' % (DETAILS_SERVICE_URL, quote_plus(category))
         )
         response.raise_for_status()
 
