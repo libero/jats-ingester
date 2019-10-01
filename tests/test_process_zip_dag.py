@@ -323,7 +323,7 @@ def test_send_article_to_service(xml_file, article_id, context, mocked_responses
     pezd.send_article_to_content_service(**context)
     response = mocked_responses.calls[-1].response
     assert response.status_code == 200
-    
+
     request_data = mocked_responses.calls[-1].request.body
     etree.parse(BytesIO(request_data))  # raises exception if cannot parse xml
 
@@ -337,15 +337,15 @@ def test_send_article_to_service_raises_exception_for_non_200_response_code(cont
         responses.PUT,
         'http://test-service.org/items/00666/versions/1',
         status=400,
-        body=(b'<?xml version="1.0" encoding="UTF-8"?>'
-              b'<problem xmlns="urn:ietf:rfc:7807" xml:lang="en">'
-              b'  <status>400</status>'
-              b'  <title>Failed to load asset</title>'
-              b'  <details>Failed to load https://unstable-jats-ingester-expanded.'
-              b'  s3.amazonaws.com/elife-00666-vor-r1/10.7554/eLife.00666.004 '
-              b'  due to "404 Not Found".'
-              b'  </details>'
-              b'</problem>')
+        body=('<?xml version="1.0" encoding="UTF-8"?>'
+              '<problem xmlns="urn:ietf:rfc:7807" xml:lang="en">'
+              '  <status>400</status>'
+              '  <title>Failed to load asset</title>'
+              '  <details>Failed to load https://unstable-jats-ingester-expanded.'
+              '  s3.amazonaws.com/elife-00666-vor-r1/10.7554/eLife.00666.004 '
+              '  due to "404 Not Found".'
+              '  </details>'
+              '</problem>')
     )
 
     with pytest.raises(HTTPError):
