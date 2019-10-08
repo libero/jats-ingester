@@ -10,6 +10,7 @@ env:
         - IMAGE_TAG=$TRAVIS_COMMIT
 
 install:
+    - docker-compose version
     - travis_retry docker-compose build
 
 script:
