@@ -7,7 +7,6 @@ Contents:
     - [Dependencies](#dependencies)
     - [Getting Started](#getting-started)
     - [Running Tests](#running-tests)
-    - [Other useful commands](#other-useful-commands)
  - [Documentation](#documentation)
     - [Architecture](#architecture)
     - [DAGs](#dags)
