@@ -2,12 +2,6 @@ language: minimal
 
 services: docker
 
-addons:
-    apt:
-        packages:
-            - docker-compose
-
-
 env:
     global:
         # hyphen in project names are stripped away in Travis's CI old docker-compose version
