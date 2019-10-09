@@ -8,6 +8,8 @@ function finish {
 
 trap finish EXIT
 
+name=$(docker ps | grep jatsingester_airflow_webserver | awk '{print $1}')
+
 docker-compose up -d
-.scripts/docker/wait-healthy.sh jatsingester_airflow_webserver_1 60
+.scripts/docker/wait-healthy.sh $name 60
 ./scripts/airflow-status-check.sh localhost:8080
