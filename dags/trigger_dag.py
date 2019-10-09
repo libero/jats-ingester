@@ -16,7 +16,7 @@ from airflow.utils import timezone
 
 import process_zip_dag
 from libero.aws import list_bucket_keys_iter
-from libero.task_helpers import get_return_value_from_previous_task
+from libero.context_facades import get_return_value_from_previous_task
 from sqlalchemy import and_
 
 SCHEDULE_INTERVAL = timedelta(minutes=1)

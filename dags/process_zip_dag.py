@@ -23,7 +23,7 @@ from requests import HTTPError
 from wand.image import Image
 
 from libero.aws import get_s3_client, list_bucket_keys_iter
-from libero.task_helpers import (
+from libero.context_facades import (
     get_file_name_passed_to_dag_run_conf_file,
     get_previous_task_name,
     get_return_value_from_previous_task
