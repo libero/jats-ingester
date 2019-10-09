@@ -1,6 +1,6 @@
 import pytest
 
-from dags.aws import get_s3_client, list_bucket_keys_iter
+from dags.libero.aws import get_s3_client, list_bucket_keys_iter
 from dags.trigger_dag import SOURCE_BUCKET, DESTINATION_BUCKET
 
 
