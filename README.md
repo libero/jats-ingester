@@ -5,14 +5,15 @@ This project is an implementation of Libero JATS Ingester.
 Contents:
  - [Development](#development)
     - [Dependencies](#dependencies)
-    - [Getting Started](#getting-started)
-    - [Running Tests](#running-tests)
+    - [Getting started](#getting-started)
+    - [Running tests](#running-tests)
  - [Documentation](#documentation)
     - [Architecture](#architecture)
     - [DAGs](#dags)
     - [Configuration](#configuration)
     - [Tests](#tests)
     - [Test utilities](#test-utilities)
+    - [Testing caveat](#testing-caveat)
     - [Maintenance](#maintenance)
  - [Getting help](#getting-help)
 
@@ -146,6 +147,34 @@ There is a custom test client used to mock the boto client methods. To use this
 in tests or to stop requests being made to AWS add `s3_client` argument to the 
 test definition. The following attributes have been added to help with testing:
 `downloaded_files`, `uploaded_files` and `last_uploaded_file_bytes`.
+
+### Testing caveat
+One thing to be mindful of when writing tests for Apache Airflow is where files 
+are located relative the working directory of the python interpreter. 
+
+For example, when importing modules in a python file with a DAG, you 
+should reference those modules relative to the DAG file rather than the 
+root of the project. But, when testing, modules should be imported 
+relative to the root of the project.
+
+e.g. assuming the following directory structure:
+- dags/
+    - helpers.py
+    - my_dag.py
+- tests/
+    - test_my_dag.py
+
+You would then import modules like so:
+```python
+# my_dag.py
+
+import helpers
+```
+```python
+# test_my_dag.py
+
+import dags.helpers
+```
 
 ### Maintenance
 Unfortunately there is some maintenance required when running Airflow.
