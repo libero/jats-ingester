@@ -95,6 +95,11 @@ from airflow import configuration
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
 ```
 
+Apache Airflow uses the [boto library](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+to interface with AWS services using their AWSHook. Refer to the [boto library
+documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) 
+regarding configuration relating to connecting to AWS services.
+
 ### Tests
 Tests are run using [pytest](https://pytest.org/en/latest/). Test files are 
 located in the `tests/` directory. Files needed for testing, such as archives and 
