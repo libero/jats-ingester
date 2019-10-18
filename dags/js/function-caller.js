@@ -10,9 +10,11 @@ const AWS = require('aws-sdk');
 async function functionCaller() {
 
   let fetchedData, returnedData, uploadedData;
+
   // get callable from script which is expected to be the third argument
   console.log('Getting callable from ', process.argv[2]);
   let callable = require(process.argv[2]);
+
   // AWS S3 key expected to be forth argument
   let key = process.argv[3];
 
@@ -31,7 +33,6 @@ async function functionCaller() {
   }
 
   console.log('AWS S3 params: ', s3ConfigParams);
-
   let s3 = new AWS.S3(s3ConfigParams);
 
   // if S3 Key was passed then retrieve the object
@@ -48,7 +49,6 @@ async function functionCaller() {
         throw error;
       }
     }).promise();
-
     console.log('Data received from S3: ', fetchedData);
   }
 
