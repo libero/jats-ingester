@@ -1,6 +1,5 @@
-import os
-
 import itertools
+import os
 import re
 from io import BytesIO
 from zipfile import ZipFile
