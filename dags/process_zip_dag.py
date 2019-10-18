@@ -43,7 +43,6 @@ SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
 WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
-ENDPOINT_URL = configuration.conf.get('libero', 'aws_endpoint_url')
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +368,6 @@ strip_related_article_tags = bash_operator.BashOperator(
     },
     env={**os.environ.copy(), **{
         'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
-        'ENDPOINT_URL': ENDPOINT_URL,
         'FILE_NAME': 'returned.xml'
     }},
     xcom_push=True,

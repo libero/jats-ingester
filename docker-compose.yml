@@ -63,6 +63,7 @@ services:
     environment:
       WAIT_HOSTS: db:5432, airflow-broker:6379
       AIRFLOW_CONN_REMOTE_LOGS: http://s3:9000?host=http://s3:9000
+      ENDPOINT_URL: http://s3:9000
     volumes:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config
