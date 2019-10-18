@@ -5,6 +5,7 @@ This project is an implementation of Libero JATS Ingester.
 Contents:
  - [Development](#development)
     - [Dependencies](#dependencies)
+    - [Before getting started](#before-getting-started)
     - [Getting started](#getting-started)
     - [Running tests](#running-tests)
  - [Documentation](#documentation)
@@ -22,6 +23,14 @@ Contents:
 ### Dependencies
 
 * [Docker](https://www.docker.com/)
+* [Git LFS](https://git-lfs.github.com/)
+
+### Before getting started
+In order to use asset files (zip files, xml files, etc), for testing or to run
+the project locally, make sure you have [Git LFS](https://git-lfs.github.com/) 
+installed as the `tests/assets/` will not only contain a representation of files
+rather than the actual files. [Git LFS](https://git-lfs.github.com/) will take
+care of downloading/uploading large files.
 
 ### Getting started
 This project provides a `Makefile` with short commands to run common tasks.
