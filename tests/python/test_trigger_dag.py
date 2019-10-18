@@ -3,7 +3,7 @@ import json
 import pytest
 
 from dags.trigger_dag import get_zip_files_to_process, run_dag_for_each_file
-from tests.factories import DagRunFactory
+from tests.python.factories import DagRunFactory
 
 
 @pytest.mark.parametrize('source, destination, expected', [

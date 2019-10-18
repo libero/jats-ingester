@@ -66,6 +66,7 @@ services:
     volumes:
       - ./dags:/airflow/dags
       - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/aws_dev_credentials:/airflow/.aws/credentials
       - ./config/airflow.dev.cfg:/airflow/airflow.cfg
 
   airflow_webserver:

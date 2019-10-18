@@ -1,5 +1,2 @@
 [default]
-aws_access_key_id=longkey
-aws_secret_access_key=verysecretkey
-region=us-east-1
 use_ssl=false
