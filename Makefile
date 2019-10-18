@@ -3,9 +3,9 @@ help:
 	@echo "start           - Run the project locally"
 	@echo "stop            - Stop all running containers and remove anonymous volumes"
 	@echo "tests           - Runs all tests"
-	@echo "python-tests    - Runs all python tests"
-	@echo "js-tests        - Runs all javascript tests"
-	@echo "debug-js-tests  - Runs all javascript tests using node inspect"
+	@echo "python-tests    - Runs python tests"
+	@echo "js-tests        - Runs javascript tests"
+	@echo "debug-js-tests  - Runs javascript tests using node inspect"
 	@echo "shell           - Enter test container shell"
 
 .PHONY: start
