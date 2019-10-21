@@ -6,16 +6,15 @@ const AWS = require('aws-sdk');
 const functionCaller = require(FUNCTION_CALLER_SCRIPT_PATH);
 
 
+// original definitions to be mocked
+let AWSS3UploadOriginal = AWS.S3.upload;
+let consoleLogOriginal = console.log;
+
+
 // mock test callable
 jest.mock(CALLABLE_SCRIPT_PATH);
 // get mock object for assertions
 const callable = require(CALLABLE_SCRIPT_PATH);
-
-// store original s3.upload definition
-let AWSS3UploadOriginal = AWS.S3.upload;
-
-// mock console.log
-let consoleLogOriginal = console.log;
 
 
 describe('Test functionCaller', () => {
