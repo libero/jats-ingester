@@ -13,8 +13,7 @@ ENV AWS_SDK_LOAD_CONFIG=true
 WORKDIR ${AIRFLOW_HOME}
 
 COPY python-requirements/ python-requirements/
-COPY node-dependencies/package-lock.json .
-COPY node-dependencies/package.json .
+COPY node-dependencies/* ./
 
 RUN pip install -U pip \
     && set -ex \
