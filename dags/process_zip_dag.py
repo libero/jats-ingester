@@ -366,10 +366,11 @@ strip_related_article_tags = bash_operator.BashOperator(
         'js_function_caller': '${AIRFLOW_HOME}/dags/js/function-caller.js',
         'js_script_to_import': '${AIRFLOW_HOME}/dags/js/xml/strip-related-article-tags.js',
     },
-    env={**os.environ.copy(), **{
-        'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
-        'FILE_NAME': 'returned.xml'
-    }},
+    env={
+        **os.environ.copy(),
+        **{'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
+           'FILE_NAME': 'returned.xml'}
+    },
     xcom_push=True,
     dag=dag
 )
