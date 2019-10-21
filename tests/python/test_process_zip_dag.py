@@ -1,10 +1,12 @@
 import itertools
+import os
 import re
 from io import BytesIO
 from zipfile import ZipFile
 
 import pytest
 import responses
+from airflow.utils.operator_helpers import context_to_airflow_vars
 from lxml import etree
 from requests.exceptions import HTTPError
 
@@ -15,8 +17,10 @@ from dags.libero.xml.xpaths import (
     XLINK_HREF_CONTAINS_JPG,
     XLINK_HREF_STARTS_WITH_WWW
 )
+from tests.python import factories
 from tests.assets import get_asset
-from tests.helpers import populate_task_return_value
+from tests.python.conftest import bash_command_teardown
+from tests.python.helpers import populate_task_return_value
 
 
 @pytest.mark.parametrize('archive_name, expected_id', [
@@ -158,7 +162,7 @@ def test_update_tiff_references_to_jpeg_in_articles_using_article_without_tiff_r
     assert returned_xml == article_xml
 
 
-def test_add_missing_jpeg_extensions_in_article(context):
+def test_add_missing_jpeg_extensions_in_article(context, mocker, s3_client):
     # setup
     zip_file_name = 'elife-40092-vor-r2.zip'
     test_asset_path = str(get_asset(zip_file_name).absolute())
@@ -171,15 +175,26 @@ def test_add_missing_jpeg_extensions_in_article(context):
         return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
         context=context
     )
+    env_vars = os.environ.copy()
+    mocker.patch.dict('os.environ', {
+        **env_vars,
+        **context_to_airflow_vars(context, in_env_var_format=True)
+    })
 
     # test
-    returned_xml = pezd.add_missing_jpeg_extensions_in_article(**context)
-    returned_xml = etree.parse(BytesIO(returned_xml))
-    assert len(returned_xml.xpath(xpath, namespaces=XLINK_MAP)) == 0
-    assert len(returned_xml.xpath(jpg_xpath, namespaces=XLINK_MAP)) > 0
+    returned_value = pezd.add_missing_jpeg_extensions_in_article(**context)
+    expected_value = '%s/%s/%s/returned.xml' % (
+        os.environ['AIRFLOW_CTX_DAG_ID'],
+        os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_DAG_RUN_ID']
+    )
+    assert returned_value == expected_value
+    resulting_xml = etree.parse(s3_client.last_uploaded_file_bytes)
+    assert len(resulting_xml.xpath(xpath, namespaces=XLINK_MAP)) == 0
+    assert len(resulting_xml.xpath(jpg_xpath, namespaces=XLINK_MAP)) > 0
 
 
-def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context):
+def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(context, mocker, s3_client):
     # setup
     zip_file_name = 'elife-00666-vor-r1.zip'
     test_asset_path = str(get_asset(zip_file_name).absolute())
@@ -190,63 +205,61 @@ def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(c
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
     populate_task_return_value(return_value=article_xml, context=context)
 
+    env_vars = os.environ.copy()
+    mocker.patch.dict('os.environ', {
+        **env_vars,
+        **context_to_airflow_vars(context, in_env_var_format=True)
+    })
+
     # test
-    returned_xml = pezd.add_missing_jpeg_extensions_in_article(**context)
-    assert returned_xml == article_xml
-
-
-def test_strip_related_article_tags_from_article_xml_using_article_with_related_article_tag(context):
-    # setup
-    test_asset_path = str(get_asset('elife-36842.xml').absolute())
-    article_xml = etree.parse(test_asset_path)
-    xpath = jats.xpaths.RELATED_ARTICLE
-    assert len(article_xml.xpath(xpath)) > 0
-    populate_task_return_value(
-        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
-        context=context
+    returned_value = pezd.add_missing_jpeg_extensions_in_article(**context)
+    expected_value = '%s/%s/%s/returned.xml' % (
+        os.environ['AIRFLOW_CTX_DAG_ID'],
+        os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_DAG_RUN_ID']
     )
-    # test
-    return_value = pezd.strip_related_article_tags_from_article_xml(**context)
-    xml = etree.parse(BytesIO(return_value))
-    assert len(xml.xpath(xpath)) == 0
+    assert returned_value == expected_value
+    resulting_xml = etree.tostring(
+        etree.parse(s3_client.last_uploaded_file_bytes),
+        xml_declaration=True,
+        encoding='UTF-8'
+    )
+    assert resulting_xml == article_xml
 
 
-def test_strip_related_article_tags_from_article_xml_using_article_without_related_article_tag(context):
-    # setup
-    test_asset_path = str(get_asset('elife-00666.xml').absolute())
-    article_xml = etree.parse(test_asset_path)
-    assert len(article_xml.xpath(jats.xpaths.RELATED_ARTICLE)) == 0
-    article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    populate_task_return_value(article_xml, context=context)
+@bash_command_teardown(pezd.strip_related_article_tags)
+def test_strip_related_article_tags_operator_can_run_node():
+    task = pezd.strip_related_article_tags
+    ti = factories.TaskInstanceFactory(task=task)
 
-    # test
-    return_value = pezd.strip_related_article_tags_from_article_xml(**context)
-    assert return_value == article_xml
+    ti.xcom_push(key='return_value', value='')
+    task.params['js_script_to_import'] = '%s/tests/js/test-callable.js' % os.environ['AIRFLOW_HOME']
+    task.bash_command = task.render_template('bash_command', task.bash_command, ti.get_template_context())
+    # test does not raise exception
+    task.execute(ti.get_template_context())
 
 
-def test_strip_object_id_tags_from_article_xml_using_article_with_object_id_tag(context):
+def test_strip_object_id_tags_from_article_xml_using_article_with_object_id_tag(context, s3_client):
     # setup
     test_asset_path = str(get_asset('elife-36842.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     xpath = jats.xpaths.OBJECT_ID
     assert len(article_xml.xpath(xpath)) > 0
-    populate_task_return_value(
-        return_value=etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8'),
-        context=context
-    )
+    populate_task_return_value(return_value='elife-36842.xml', context=context)
+
     # test
     return_value = pezd.strip_object_id_tags_from_article_xml(**context)
     xml = etree.parse(BytesIO(return_value))
     assert len(xml.xpath(xpath)) == 0
 
 
-def test_strip_object_id_tags_from_article_xml_using_article_without_object_id_tag(context):
+def test_strip_object_id_tags_from_article_xml_using_article_without_object_id_tag(context, s3_client):
     # setup
     test_asset_path = str(get_asset('elife-00666.xml').absolute())
     article_xml = etree.parse(test_asset_path)
     assert len(article_xml.xpath(jats.xpaths.OBJECT_ID)) == 0
     article_xml = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    populate_task_return_value(article_xml, context=context)
+    populate_task_return_value('elife-00666.xml', context=context)
 
     # test
     return_value = pezd.strip_object_id_tags_from_article_xml(**context)

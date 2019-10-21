@@ -5,8 +5,8 @@ from dags.libero.context_facades import (
     get_return_value_from_previous_task,
     get_file_name_passed_to_dag_run_conf_file
 )
-from tests.factories import TaskInstanceFactory
-from tests.helpers import populate_task_return_value
+from tests.python.factories import TaskInstanceFactory
+from tests.python.helpers import populate_task_return_value
 
 
 def test_get_previous_task_name(context):

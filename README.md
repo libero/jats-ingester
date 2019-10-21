@@ -46,7 +46,10 @@ AWS S3
  
 ### Running tests
 
-* `make tests` runs unit tests.
+* `make tests` runs all tests.
+* `make python-tests` runs python tests only
+* `make js-tests` runs javascript tests only
+* `make debug-js-tests` runs javascript tests only using node inspect
 
 ## Documentation
 

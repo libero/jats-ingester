@@ -8,8 +8,8 @@ from airflow.utils.db import create_session
 from airflow.utils.state import State
 from pytest_socket import disable_socket, SocketBlockedError
 
-from tests import mocks
-from tests.factories import DAGFactory, PythonOperatorFactory
+from tests.python import mocks
+from tests.python.factories import DAGFactory, PythonOperatorFactory
 
 
 def pytest_runtest_setup():
@@ -128,3 +128,16 @@ def set_remote_logs_env_var():
 def mocked_responses():
     with responses.RequestsMock() as response:
         yield response
+
+
+def bash_command_teardown(bash_operator_callable):
+    """
+    decorator for restoring a rendered bash command after running test function.
+    """
+    def wrap(test_func):
+        def wrapper(*args, **kwargs):
+            bash_command = bash_operator_callable.bash_command
+            test_func(*args, **kwargs)
+            bash_operator_callable.bash_command = bash_command
+        return wrapper
+    return wrap

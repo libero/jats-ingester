@@ -8,10 +8,12 @@ FROM python:3.7.3-slim as base
 # a query string of parameters like so: http://localstack:4572?host=http://localstack:4572
 ENV AIRFLOW_CONN_REMOTE_LOGS=""
 ENV AIRFLOW_HOME=/airflow
+ENV AWS_SDK_LOAD_CONFIG=true
 
 WORKDIR ${AIRFLOW_HOME}
 
-COPY requirements/ requirements/
+COPY python-requirements/ python-requirements/
+COPY node-dependencies/* ./
 
 RUN pip install -U pip \
     && set -ex \
@@ -20,9 +22,14 @@ RUN pip install -U pip \
         build-essential \
         libmagickwand-dev \
         procps \
+        curl \
+    && curl -sL https://deb.nodesource.com/setup_10.x | bash - \
+    && apt-get install -yq --no-install-recommends nodejs \
+    && alias node=nodejs \
+    && npm install --only=prod \
     && useradd -s /bin/bash -d ${AIRFLOW_HOME} airflow \
-    && pip install --no-cache-dir -r requirements/base.txt \
-    && apt-get remove --purge --autoremove -yq build-essential \
+    && pip install --no-cache-dir -r python-requirements/base.txt \
+    && apt-get remove --purge --autoremove -yq build-essential curl \
     && rm -rf ~/.cache/* \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/*
@@ -52,7 +59,8 @@ ENV PYTHONDONTWRITEBYTECODE=true
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
 RUN chmod +x /wait
 
-RUN pip install --no-cache-dir -r requirements/dev.txt \
+RUN pip install --no-cache-dir -r python-requirements/dev.txt \
+    && npm install --only=dev \
     && rm -rf /tmp/*
 
 USER airflow

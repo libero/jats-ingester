@@ -3,6 +3,7 @@ DAG processes a zip file stored in an AWS S3 bucket and prepares the extracted x
 file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
+import os
 import re
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
@@ -14,7 +15,7 @@ from zipfile import ZipFile
 
 import requests
 from airflow import DAG, configuration
-from airflow.operators import python_operator
+from airflow.operators import python_operator, bash_operator
 from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
@@ -36,6 +37,7 @@ from libero.xml.xpaths import XLINK_HREF_CONTAINS_TIF, XLINK_HREF_STARTS_WITH_WW
 ARTICLE_ASSETS_URL = configuration.conf.get('libero', 'article_assets_url')
 SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
 DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
+COMPLETED_TASKS_BUCKET = configuration.conf.get('libero', 'completed_tasks_bucket_name')
 SERVICE_NAME = configuration.conf.get('libero', 'service_name')
 SERVICE_URL = configuration.conf.get('libero', 'service_url')
 TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
@@ -198,25 +200,41 @@ def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
     return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
-def add_missing_jpeg_extensions_in_article(**context) -> bytes:
+def add_missing_jpeg_extensions_in_article(**context) -> str:
     article_xml = get_article_from_previous_task(context)
     for element in article_xml.xpath(jats.xpaths.IMAGE_BY_JPEG_MIMETYPE):
         if not element.attrib[XLINK_HREF].endswith('.jpg'):
             element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF] + '.jpg'
 
-    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-
-
-def strip_related_article_tags_from_article_xml(**context) -> bytes:
-    article_xml = get_article_from_previous_task(context)
-    etree.strip_tags(article_xml, 'related-article')
-    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    xml_string = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    key = '%s/%s/%s/returned.xml' % (
+        os.environ['AIRFLOW_CTX_DAG_ID'],
+        os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_DAG_RUN_ID']
+    )
+    s3 = get_s3_client()
+    s3.put_object(
+        Bucket=COMPLETED_TASKS_BUCKET,
+        Key=key,
+        Body=BytesIO(xml_string)
+    )
+    return key
 
 
 def strip_object_id_tags_from_article_xml(**context) -> bytes:
-    article_xml = get_article_from_previous_task(context)
-    etree.strip_tags(article_xml, 'object-id')
-    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
+    key = get_return_value_from_previous_task(context)
+
+    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_file:
+        s3 = get_s3_client()
+        s3.download_fileobj(
+            Bucket=COMPLETED_TASKS_BUCKET,
+            Key=key,
+            Fileobj=temp_file
+        )
+        temp_file.seek(0)
+        article_xml = etree.parse(BytesIO(temp_file.read()))
+        etree.strip_tags(article_xml, 'object-id')
+        return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
 
 
 def add_missing_uri_schemes(**context) -> bytes:
@@ -341,10 +359,19 @@ add_missing_jpeg_extensions = python_operator.PythonOperator(
     dag=dag
 )
 
-strip_related_article_tags = python_operator.PythonOperator(
+strip_related_article_tags = bash_operator.BashOperator(
     task_id='strip_related_article_tags_from_article_xml',
-    provide_context=True,
-    python_callable=strip_related_article_tags_from_article_xml,
+    bash_command='nodejs {{ params.js_function_caller}} {{ params.js_script_to_import }} {{ ti.xcom_pull() }}',
+    params={
+        'js_function_caller': '${AIRFLOW_HOME}/dags/js/function-caller.js',
+        'js_script_to_import': '${AIRFLOW_HOME}/dags/js/xml/strip-related-article-tags.js',
+    },
+    env={
+        **os.environ.copy(),
+        **{'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
+           'FILE_NAME': 'returned.xml'}
+    },
+    xcom_push=True,
     dag=dag
 )
 
