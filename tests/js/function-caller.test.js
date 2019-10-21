@@ -25,7 +25,6 @@ describe('Test functionCaller', () => {
       AIRFLOW_CTX_TASK_ID: 'task_1',
       AIRFLOW_CTX_DAG_RUN_ID: 'dag_run_1',
       COMPLETED_TASKS_BUCKET: 'completed-tasks-bucket',
-      ENDPOINT_URL: null,
       FILE_NAME: 'test-file.xml'
     };
   });
@@ -56,40 +55,6 @@ describe('Test functionCaller', () => {
 
     // teardown
     AWSMock.restore("S3");
-  });
-
-
-  test('will specify an AWS Endpoint if ENDPOINT_URL environment variable is set', async () => {
-
-    process.env.ENDPOINT_URL = 'http://s3:9000';
-    
-    // AWS mocks
-    let AWSS3 = AWS.S3;
-    AWS.S3 = jest.fn();
-
-    expect.assertions(2);
-    await functionCaller();
-    expect(AWS.S3.mock.calls.length).toBe(1);
-    expect(AWS.S3.mock.calls[0][0].endpoint.href).toBe('http://s3:9000/');
-
-    // teardown
-    AWS.S3 = AWSS3;
-  });
-
-
-  test('will not specify an AWS Endpoint if ENDPOINT_URL environment variable is not set', async () => {
-
-    // AWS mocks
-    let AWSS3 = AWS.S3;
-    AWS.S3 = jest.fn();
-
-    expect.assertions(2);
-    await functionCaller();
-    expect(AWS.S3.mock.calls.length).toBe(1);
-    expect(AWS.S3.mock.calls[0][0].endpoint).toBe(undefined);
-
-    // teardown
-    AWS.S3 = AWSS3;
   });
 
 

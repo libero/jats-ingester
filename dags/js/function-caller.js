@@ -4,8 +4,7 @@ Helper function designed to be used with the Apache Airflow Bash Operator.
 Calls the default function in the script specified as the third argument and logs
 the returned value to console, which in turn is stored in the Airflow XCom table.
  */
-const AWS = require('aws-sdk');
-
+const getS3Client = require(process.env.AIRFLOW_HOME + '/dags/js/aws/get-s3-client.js');
 
 async function functionCaller() {
 
@@ -15,25 +14,10 @@ async function functionCaller() {
   console.log('Getting callable from ', process.argv[2]);
   let callable = require(process.argv[2]);
 
+  let s3 = getS3Client();
+
   // AWS S3 key expected to be forth argument
   let key = process.argv[3];
-
-
-  let s3ConfigParams = {
-    apiVersion: '2006-03-01',
-    maxRetries: 3,
-    s3ForcePathStyle: true,
-    httpOptions: {
-      connectTimeout: 5000
-    }
-  };
-  // set s3 to use local container by setting the ENDPOINT_URL environment variable
-  if (process.env.ENDPOINT_URL) {
-    s3ConfigParams.endpoint = new AWS.Endpoint(process.env.ENDPOINT_URL);
-  }
-
-  console.log('AWS S3 params: ', s3ConfigParams);
-  let s3 = new AWS.S3(s3ConfigParams);
 
   // if S3 Key was passed then retrieve the object
   if (key) {
