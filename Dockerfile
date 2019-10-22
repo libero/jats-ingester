@@ -11,6 +11,7 @@ ENV AIRFLOW_HOME=/airflow
 ENV AWS_SDK_LOAD_CONFIG=true
 
 WORKDIR ${AIRFLOW_HOME}
+RUN mkdir .aws
 
 COPY python-requirements/ python-requirements/
 COPY node-dependencies/* ./
