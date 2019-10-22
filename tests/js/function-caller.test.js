@@ -30,8 +30,8 @@ describe('Test functionCaller', () => {
       AIRFLOW_CTX_DAG_ID: 'dag_1',
       AIRFLOW_CTX_TASK_ID: 'task_1',
       AIRFLOW_CTX_DAG_RUN_ID: 'dag_run_1',
-      COMPLETED_TASKS_BUCKET: 'completed-tasks-bucket',
-      FILE_NAME: 'test-file.xml'
+      AIRFLOW_CTX_EXECUTION_DATE: new Date(2019, 1, 1).toISOString(),
+      COMPLETED_TASKS_BUCKET: 'completed-tasks-bucket'
     };
   });
 
@@ -76,8 +76,8 @@ describe('Test functionCaller', () => {
 
     let s3Key = process.env.AIRFLOW_CTX_DAG_ID + "/" +
                 process.env.AIRFLOW_CTX_TASK_ID + "/" +
-                process.env.AIRFLOW_CTX_DAG_RUN_ID + "/" +
-                process.env.FILE_NAME;
+                process.env.AIRFLOW_CTX_EXECUTION_DATE + "_" +
+                process.env.AIRFLOW_CTX_DAG_RUN_ID;
 
     AWSMock.mock("S3", "upload", {Key: s3Key});
     callable.mockReturnValue(Buffer.from('test'));

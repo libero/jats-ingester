@@ -59,8 +59,8 @@ async function functionCaller() {
 
     key = process.env.AIRFLOW_CTX_DAG_ID + "/" +
           process.env.AIRFLOW_CTX_TASK_ID + "/" +
-          process.env.AIRFLOW_CTX_DAG_RUN_ID + "/" +
-          process.env.FILE_NAME;
+          process.env.AIRFLOW_CTX_EXECUTION_DATE + "_" +
+          process.env.AIRFLOW_CTX_DAG_RUN_ID;
 
     let s3Params = {
       Bucket: process.env.COMPLETED_TASKS_BUCKET,
