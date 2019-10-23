@@ -75,8 +75,8 @@ describe('Test functionCaller', () => {
 
     await functionCaller();
 
-    let logCallsLength = console.log.mock.calls.length - 1;
-    expect(console.log.mock.calls[logCallsLength][0]).toBe(testKey);
+    let lastLogCallIndex = console.log.mock.calls.length - 1;
+    expect(console.log.mock.calls[lastLogCallIndex][0]).toBe(testKey);
   });
 
 
@@ -106,8 +106,8 @@ describe('Test functionCaller', () => {
 
     expect(callable.mock.calls.length).toBe(1);
 
-    let logCallsLength = console.log.mock.calls.length - 1;
-    expect(console.log.mock.calls[logCallsLength][0]).not.toBe(testKey);
+    let lastLogCallIndex = console.log.mock.calls.length - 1;
+    expect(console.log.mock.calls[lastLogCallIndex][0]).not.toBe(testKey);
   });
 
 });
