@@ -12,13 +12,13 @@ def create_node_task(name: str,
                      dag: DAG,
                      xcom_pull: bool = False) -> BashOperator:
 
-    bash_command = 'nodejs {{ params.js_function_caller}} {{ params.js_task_script }}'
+    bash_command_template = 'nodejs {{ params.js_function_caller}} {{ params.js_task_script }}'
     if xcom_pull:
-        bash_command += ' {{ ti.xcom_pull() }}'
+        bash_command_template += ' {{ ti.xcom_pull() }}'
 
     return BashOperator(
         task_id=name,
-        bash_command=bash_command,
+        bash_command=bash_command_template,
         params={
             'js_function_caller': '${AIRFLOW_HOME}/dags/js/function-caller.js',
             'js_task_script': js_task_script_path
