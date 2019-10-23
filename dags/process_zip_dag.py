@@ -208,9 +208,10 @@ def add_missing_jpeg_extensions_in_article(**context) -> str:
             element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF] + '.jpg'
 
     xml_string = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    key = '%s/%s/%s/returned.xml' % (
+    key = '%s/%s/%s_%s' % (
         os.environ['AIRFLOW_CTX_DAG_ID'],
         os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_EXECUTION_DATE'],
         os.environ['AIRFLOW_CTX_DAG_RUN_ID']
     )
     s3 = get_s3_client()

@@ -183,9 +183,10 @@ def test_add_missing_jpeg_extensions_in_article(context, mocker, s3_client):
 
     # test
     returned_value = pezd.add_missing_jpeg_extensions_in_article(**context)
-    expected_value = '%s/%s/%s/returned.xml' % (
+    expected_value = '%s/%s/%s_%s' % (
         os.environ['AIRFLOW_CTX_DAG_ID'],
         os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_EXECUTION_DATE'],
         os.environ['AIRFLOW_CTX_DAG_RUN_ID']
     )
     assert returned_value == expected_value
@@ -213,9 +214,10 @@ def test_add_missing_jpeg_extensions_in_article_without_missing_jpeg_extension(c
 
     # test
     returned_value = pezd.add_missing_jpeg_extensions_in_article(**context)
-    expected_value = '%s/%s/%s/returned.xml' % (
+    expected_value = '%s/%s/%s_%s' % (
         os.environ['AIRFLOW_CTX_DAG_ID'],
         os.environ['AIRFLOW_CTX_TASK_ID'],
+        os.environ['AIRFLOW_CTX_EXECUTION_DATE'],
         os.environ['AIRFLOW_CTX_DAG_RUN_ID']
     )
     assert returned_value == expected_value
