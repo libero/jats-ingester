@@ -29,6 +29,7 @@ from libero.context_facades import (
     get_previous_task_name,
     get_return_value_from_previous_task
 )
+from libero.operators import create_node_task
 from libero.xml import jats, libero, XLINK_HREF, XLINK_MAP, XML_BASE
 from libero.xml.xpaths import XLINK_HREF_CONTAINS_TIF, XLINK_HREF_STARTS_WITH_WWW
 
@@ -359,19 +360,11 @@ add_missing_jpeg_extensions = python_operator.PythonOperator(
     dag=dag
 )
 
-strip_related_article_tags = bash_operator.BashOperator(
-    task_id='strip_related_article_tags_from_article_xml',
-    bash_command='nodejs {{ params.js_function_caller}} {{ params.js_script_to_import }} {{ ti.xcom_pull() }}',
-    params={
-        'js_function_caller': '${AIRFLOW_HOME}/dags/js/function-caller.js',
-        'js_script_to_import': '${AIRFLOW_HOME}/dags/js/xml/strip-related-article-tags.js',
-    },
-    env={
-        **os.environ.copy(),
-        **{'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET}
-    },
-    xcom_push=True,
-    dag=dag
+strip_related_article_tags = create_node_task(
+    name='strip_related_article_tags_from_article_xml',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/xml/strip-related-article-tags.js',
+    dag=dag,
+    xcom_pull=True
 )
 
 strip_object_id_tags = python_operator.PythonOperator(
