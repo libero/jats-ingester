@@ -2,14 +2,10 @@ const FUNCTION_CALLER_SCRIPT_PATH = process.env.AIRFLOW_HOME + '/dags/js/functio
 const CALLABLE_SCRIPT_PATH = process.env.AIRFLOW_HOME + '/tests/js/test-callable.js';
 
 const AWSMock = require('aws-sdk-mock');
-const AWS = require('aws-sdk');
 const functionCaller = require(FUNCTION_CALLER_SCRIPT_PATH);
 
-
 // original definitions to be mocked
-let AWSS3UploadOriginal = AWS.S3.upload;
 let consoleLogOriginal = console.log;
-
 
 // mock test callable
 jest.mock(CALLABLE_SCRIPT_PATH);
@@ -30,34 +26,31 @@ describe('Test functionCaller', () => {
       AIRFLOW_CTX_DAG_ID: 'dag_1',
       AIRFLOW_CTX_TASK_ID: 'task_1',
       AIRFLOW_CTX_DAG_RUN_ID: 'dag_run_1',
-      COMPLETED_TASKS_BUCKET: 'completed-tasks-bucket',
-      FILE_NAME: 'test-file.xml'
+      AIRFLOW_CTX_EXECUTION_DATE: new Date(2019, 1, 1).toISOString(),
+      COMPLETED_TASKS_BUCKET: 'completed-tasks-bucket'
     };
-  });
 
-  afterEach(() => {
-    AWS.S3.upload = AWSS3UploadOriginal;
-    AWSMock.restore("S3");
     callable.mockClear();
     console.log = consoleLogOriginal;
   });
 
+  afterEach(() => {
+    AWSMock.restore("S3");
+  });
+
   test('can import and call callable from script', async () => {
-    expect.assertions(1);
     await functionCaller();
     expect(callable.mock.calls.length).toBe(1);
   });
 
 
   test('will get an object from AWS S3 using passed Key', async () => {
-
     process.argv = process.argv.concat(['MyKey']);
     process.env.ENDPOINT_URL = 'http://s3:9000';
 
     // AWS mocks
     AWSMock.mock("S3", "getObject", {Body: Buffer.from('test', 'binary')});
 
-    expect.assertions(2);
     await functionCaller();
     expect(callable.mock.calls.length).toBe(1);
     expect(callable.mock.calls[0][0].toString()).toBe('test');
@@ -65,7 +58,6 @@ describe('Test functionCaller', () => {
 
 
   test('will call callable without any arguments if AWS S3 Key is not passed', async () => {
-    expect.assertions(2);
     await functionCaller();
     expect(callable.mock.calls.length).toBe(1);
     expect(callable.mock.calls[0][0]).toBe(undefined);
@@ -73,25 +65,22 @@ describe('Test functionCaller', () => {
 
 
   test('will upload returned object from callable to AWS S3', async () => {
+    // TODO: check arguments passed to S3.upload call if the Key matches expected Key
 
-    let s3Key = process.env.AIRFLOW_CTX_DAG_ID + "/" +
-                process.env.AIRFLOW_CTX_TASK_ID + "/" +
-                process.env.AIRFLOW_CTX_DAG_RUN_ID + "/" +
-                process.env.FILE_NAME;
+    let testKey = 'test/key';
 
-    AWSMock.mock("S3", "upload", {Key: s3Key});
+    AWSMock.mock("S3", "upload", {Key: testKey});
     callable.mockReturnValue(Buffer.from('test'));
     console.log = jest.fn();
 
-    expect.assertions(2);
     await functionCaller();
-    expect(console.log.mock.calls.length).toBe(7);
-    expect(console.log.mock.calls[6][0]).toBe(s3Key);
+
+    let lastLogCallIndex = console.log.mock.calls.length - 1;
+    expect(console.log.mock.calls[lastLogCallIndex][0]).toBe(testKey);
   });
 
 
   test('throws error if returned object from callable is not of type Buffer', async () => {
-
     callable.mockReturnValue(42);
 
     expect.assertions(1);
@@ -105,14 +94,20 @@ describe('Test functionCaller', () => {
 
 
   test('will not return AWS S3 Key if return value from callable not supplied', async () => {
+    // TODO: check S3 response object
 
-    AWS.S3.upload = jest.fn();
+    let testKey = 'test/key';
+
+    AWSMock.mock("S3", "upload", {Key: testKey});
     callable.mockReturnValue(undefined);
+    console.log = jest.fn();
 
-    expect.assertions(2);
     await functionCaller();
+
     expect(callable.mock.calls.length).toBe(1);
-    expect(AWS.S3.upload.mock.calls.length).toBe(0);
+
+    let lastLogCallIndex = console.log.mock.calls.length - 1;
+    expect(console.log.mock.calls[lastLogCallIndex][0]).not.toBe(testKey);
   });
 
 });

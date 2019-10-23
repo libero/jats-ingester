@@ -368,8 +368,7 @@ strip_related_article_tags = bash_operator.BashOperator(
     },
     env={
         **os.environ.copy(),
-        **{'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
-           'FILE_NAME': 'returned.xml'}
+        **{'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET}
     },
     xcom_push=True,
     dag=dag

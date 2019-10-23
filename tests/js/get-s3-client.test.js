@@ -23,8 +23,8 @@ describe('Test getS3Client', () => {
 
     AWS.S3 = jest.fn();
 
-    expect.assertions(2);
-    let s3 = getS3Client();
+    getS3Client();
+
     expect(AWS.S3.mock.calls.length).toBe(1);
     expect(AWS.S3.mock.calls[0][0].endpoint.href).toBe('http://s3:9000/');
   });
@@ -33,8 +33,8 @@ describe('Test getS3Client', () => {
   test('will not specify an AWS Endpoint if ENDPOINT_URL environment variable is not set', () => {
     AWS.S3 = jest.fn();
 
-    expect.assertions(2);
-    let s3 = getS3Client();
+    getS3Client();
+
     expect(AWS.S3.mock.calls.length).toBe(1);
     expect(AWS.S3.mock.calls[0][0].endpoint).toBe(undefined);
   });
