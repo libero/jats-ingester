@@ -54,7 +54,7 @@ async function functionCaller() {
     let desiredType = Object.prototype.toString.call(Buffer.from(''));
 
     if (typeOfReturnedData !== desiredType) {
-      throw "return value from " + process.argv[2] + " is not of type Buffer"
+      throw new Error("return value from " + process.argv[2] + " is not of type Buffer");
     }
 
     key = process.env.AIRFLOW_CTX_DAG_ID + "/" +

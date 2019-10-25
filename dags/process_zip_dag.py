@@ -15,7 +15,7 @@ from zipfile import ZipFile
 
 import requests
 from airflow import DAG, configuration
-from airflow.operators import python_operator, bash_operator
+from airflow.operators import python_operator
 from airflow.utils import timezone
 from lxml import etree
 from lxml.builder import ElementMaker
@@ -144,7 +144,7 @@ def convert_image_in_s3_to_jpeg(key) -> str:
         return key
 
 
-def extract_archived_files_to_bucket(**context) -> List[str]:
+def extract_archived_files_to_bucket(**context) -> str:
     zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
 
     with NamedTemporaryFile(dir=TEMP_DIRECTORY) as temp_zip_file:
@@ -168,7 +168,29 @@ def extract_archived_files_to_bucket(**context) -> List[str]:
             args = [(prefix, temp_zip_file.name, f) for f in zip_file.namelist()]
             uploaded_files = p.map(extract_file_to_s3, args)
 
-    return list(uploaded_files)
+        key = '%s/%s/%s_%s' % (
+            os.environ['AIRFLOW_CTX_DAG_ID'],
+            os.environ['AIRFLOW_CTX_TASK_ID'],
+            os.environ['AIRFLOW_CTX_EXECUTION_DATE'],
+            os.environ['AIRFLOW_CTX_DAG_RUN_ID']
+        )
+
+        for zipped_file in zip_file.namelist():
+            if zipped_file.endswith('.xml'):
+                xml = etree.parse(BytesIO(zip_file.read(zipped_file)))
+                if xml.xpath(jats.xpaths.ARTICLE):
+                    xml_string = etree.tostring(
+                        xml,
+                        xml_declaration=True,
+                        encoding='UTF-8'
+                    )
+                    s3.put_object(
+                        Bucket=COMPLETED_TASKS_BUCKET,
+                        Key=key,
+                        Body=BytesIO(xml_string)
+                    )
+                    break
+        return key
 
 
 def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
@@ -185,104 +207,6 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
     with ThreadPoolExecutor(**thread_options) as p:
         uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
         return list(uploaded_images)
-
-
-def update_tiff_references_to_jpeg_in_article(**context) -> bytes:
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    article_xml = get_article_from_zip_in_s3(zip_file_name)
-
-    for element in article_xml.xpath(jats.xpaths.IMAGE_BY_TIFF_MIMETYPE):
-        element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
-        element.attrib['mime-subtype'] = 'jpeg'
-
-    for element in article_xml.xpath(XLINK_HREF_CONTAINS_TIF, namespaces=XLINK_MAP):
-        element.attrib[XLINK_HREF] = re.sub(r'\.\w+$', '.jpg', element.attrib[XLINK_HREF])
-
-    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-
-
-def add_missing_jpeg_extensions_in_article(**context) -> str:
-    article_xml = get_article_from_previous_task(context)
-    for element in article_xml.xpath(jats.xpaths.IMAGE_BY_JPEG_MIMETYPE):
-        if not element.attrib[XLINK_HREF].endswith('.jpg'):
-            element.attrib[XLINK_HREF] = element.attrib[XLINK_HREF] + '.jpg'
-
-    xml_string = etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-    key = '%s/%s/%s_%s' % (
-        os.environ['AIRFLOW_CTX_DAG_ID'],
-        os.environ['AIRFLOW_CTX_TASK_ID'],
-        os.environ['AIRFLOW_CTX_EXECUTION_DATE'],
-        os.environ['AIRFLOW_CTX_DAG_RUN_ID']
-    )
-    s3 = get_s3_client()
-    s3.put_object(
-        Bucket=COMPLETED_TASKS_BUCKET,
-        Key=key,
-        Body=BytesIO(xml_string)
-    )
-    return key
-
-
-def strip_object_id_tags_from_article_xml(**context) -> bytes:
-    key = get_return_value_from_previous_task(context)
-
-    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_file:
-        s3 = get_s3_client()
-        s3.download_fileobj(
-            Bucket=COMPLETED_TASKS_BUCKET,
-            Key=key,
-            Fileobj=temp_file
-        )
-        temp_file.seek(0)
-        article_xml = etree.parse(BytesIO(temp_file.read()))
-        etree.strip_tags(article_xml, 'object-id')
-        return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-
-
-def add_missing_uri_schemes(**context) -> bytes:
-    article_xml = get_article_from_previous_task(context)
-    elements = article_xml.xpath(XLINK_HREF_STARTS_WITH_WWW, namespaces=XLINK_MAP)
-    for element in elements:
-        element.attrib[XLINK_HREF] = 'http://' + element.attrib[XLINK_HREF]
-
-    return etree.tostring(article_xml, xml_declaration=True, encoding='UTF-8')
-
-
-def wrap_article_in_libero_xml(**context) -> bytes:
-    article_xml = get_article_from_previous_task(context)
-    article_id = jats.get_article_id(article_xml)
-
-    # add jats prefix to jats tags
-    for element in article_xml.iter():
-        if not element.prefix:
-            element.tag = '{%s}%s' % (jats.JATS_NS, element.tag)
-
-    # add xml:base attribute to article element
-    dag_run_file = Path(get_file_name_passed_to_dag_run_conf_file(context))
-    key = dag_run_file.stem
-    if dag_run_file.suffix == '.meca':
-        key += '/content'
-
-    root = article_xml.getroot()
-    root.set(
-        XML_BASE,
-        '%s/%s/' % (ARTICLE_ASSETS_URL, key)
-    )
-
-    # create libero xml
-    nsmap = {None: libero.LIBERO_NS}
-    nsmap.update(jats.JATS_MAP)
-
-    doc = ElementMaker(nsmap=nsmap)
-    xml = doc.item(
-        doc.meta(
-            doc.id(article_id),
-            doc.service(SERVICE_NAME)
-        ),
-        root
-    )
-
-    return etree.tostring(xml, xml_declaration=True, encoding='UTF-8')
 
 
 def send_article_to_content_service(upstream_task_id: str = None, **context) -> None:
@@ -347,46 +271,46 @@ convert_tiff_images = python_operator.PythonOperator(
     dag=dag
 )
 
-update_tiff_references = python_operator.PythonOperator(
-    task_id='update_tiff_references_to_jpeg_in_article',
-    provide_context=True,
-    python_callable=update_tiff_references_to_jpeg_in_article,
-    dag=dag
-)
-
-add_missing_jpeg_extensions = python_operator.PythonOperator(
-    task_id='add_missing_jpeg_extensions_in_article',
-    provide_context=True,
-    python_callable=add_missing_jpeg_extensions_in_article,
-    dag=dag
-)
-
-strip_related_article_tags = create_node_task(
-    name='strip_related_article_tags_from_article_xml',
-    js_task_script_path='${AIRFLOW_HOME}/dags/js/xml/strip-related-article-tags.js',
+update_tiff_references = create_node_task(
+    name='update_tiff_references_to_jpeg_in_article',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/update-tiff-references-to-jpeg-in-article.js',
     dag=dag,
     xcom_pull=True
 )
 
-strip_object_id_tags = python_operator.PythonOperator(
-    task_id='strip_object_id_tags_from_article_xml',
-    provide_context=True,
-    python_callable=strip_object_id_tags_from_article_xml,
-    dag=dag
+add_missing_jpeg_extensions = create_node_task(
+    name='add_missing_jpeg_extensions_in_article',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/add-missing-jpeg-extensions-in-article.js',
+    dag=dag,
+    xcom_pull=True
 )
 
-add_missing_uri_schemes_task = python_operator.PythonOperator(
-    task_id='add_missing_uri_schemes',
-    provide_context=True,
-    python_callable=add_missing_uri_schemes,
-    dag=dag
+strip_related_article_tags = create_node_task(
+    name='strip_related_article_tags_from_article_xml',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/strip-related-article-tags.js',
+    dag=dag,
+    xcom_pull=True
 )
 
-wrap_article = python_operator.PythonOperator(
-    task_id='wrap_article_in_libero_xml',
-    provide_context=True,
-    python_callable=wrap_article_in_libero_xml,
-    dag=dag
+strip_object_id_tags = create_node_task(
+    name='strip_object_id_tags_from_article_xml',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/strip-object-id-tags.js',
+    dag=dag,
+    xcom_pull=True
+)
+
+add_missing_uri_schemes = create_node_task(
+    name='add_missing_uri_schemes',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/add-missing-uri-schemes.js',
+    dag=dag,
+    xcom_pull=True
+)
+
+wrap_article = create_node_task(
+    name='wrap_article_in_libero_xml',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/wrap_article-in-libero-xml.js',
+    dag=dag,
+    xcom_pull=True
 )
 
 send_article = python_operator.PythonOperator(
@@ -415,8 +339,8 @@ extract_zip_files.set_downstream(update_tiff_references)
 update_tiff_references.set_downstream(add_missing_jpeg_extensions)
 add_missing_jpeg_extensions.set_downstream(strip_related_article_tags)
 strip_related_article_tags.set_downstream(strip_object_id_tags)
-strip_object_id_tags.set_downstream(add_missing_uri_schemes_task)
-add_missing_uri_schemes_task.set_downstream(wrap_article)
+strip_object_id_tags.set_downstream(add_missing_uri_schemes)
+add_missing_uri_schemes.set_downstream(wrap_article)
 wrap_article.set_downstream(send_article)
 
 # join
