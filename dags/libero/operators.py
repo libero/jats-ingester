@@ -13,9 +13,28 @@ SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
 def create_node_task(name: str,
                      js_task_script_path: str,
                      dag: DAG,
+                     env: dict = None,
+                     use_function_caller: bool = True,
                      xcom_pull: bool = False) -> BashOperator:
 
-    bash_command_template = 'nodejs {{ params.js_function_caller}} {{ params.js_task_script }}'
+    bash_command_template = 'nodejs'
+    if use_function_caller:
+        bash_command_template += ' {{ params.js_function_caller }}'
+    bash_command_template += ' {{ params.js_task_script }}'
+
+    env_vars = {
+        **os.environ.copy(),
+        **{'ARCHIVE_FILE_NAME': '{{ dag_run.conf["file"] }}',
+           'ARTICLE_ASSETS_URL': ARTICLE_ASSETS_URL,
+           'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
+           'DESTINATION_BUCKET': DESTINATION_BUCKET,
+           'SERVICE_NAME': SERVICE_NAME,
+           'SOURCE_BUCKET': SOURCE_BUCKET}
+    }
+
+    if env:
+        env_vars.update(env)
+
     if xcom_pull:
         bash_command_template += ' {{ ti.xcom_pull() }}'
 
@@ -26,15 +45,7 @@ def create_node_task(name: str,
             'js_function_caller': '${AIRFLOW_HOME}/dags/js/function-caller.js',
             'js_task_script': js_task_script_path
         },
-        env={
-            **os.environ.copy(),
-            **{'ARCHIVE_FILE_NAME': '{{ dag_run.conf["file"] }}',
-               'ARTICLE_ASSETS_URL': ARTICLE_ASSETS_URL,
-               'COMPLETED_TASKS_BUCKET': COMPLETED_TASKS_BUCKET,
-               'DESTINATION_BUCKET': DESTINATION_BUCKET,
-               'SERVICE_NAME': SERVICE_NAME,
-               'SOURCE_BUCKET': SOURCE_BUCKET}
-        },
+        env=env_vars,
         xcom_push=True,
         dag=dag
     )

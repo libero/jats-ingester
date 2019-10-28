@@ -1,0 +1,71 @@
+version: "3.4"
+
+services:
+  s3:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ACCESS_KEY: longkey
+      MINIO_SECRET_KEY: verysecretkey
+    ports:
+      - 9000:9000
+
+  awscli:
+    build:
+      context: .
+      dockerfile: Dockerfile.awscli
+    working_dir: /src/app
+    volumes:
+      - ./scripts/create-s3-buckets.sh:/src/app/create-s3-buckets.sh
+      - ./scripts/copy-00666-to-s3.sh:/src/app/copy-00666-to-s3.sh
+      - ./scripts/copy-biorxiv-meca-to-s3.sh:/src/app/copy-biorxiv-meca-to-s3.sh
+      - ./tests/assets/:/src/app/assets/
+    command: /bin/sh -c "./create-s3-buckets.sh && ./copy-00666-to-s3.sh && ./copy-biorxiv-meca-to-s3.sh"
+    depends_on:
+      - s3
+    environment:
+      WAIT_HOSTS: s3:9000
+      AWS_ACCESS_KEY_ID: longkey
+      AWS_SECRET_ACCESS_KEY: verysecretkey
+
+  content-store:
+    build:
+      context: .
+      target: dev
+    entrypoint: ""
+    volumes:
+      - ./content-store.py:/airflow/content-store.py
+    command: python /airflow/content-store.py
+
+  search:
+    build:
+      context: .
+      target: dev
+    entrypoint: ""
+    volumes:
+      - ./search.py:/airflow/search.py
+    command: python /airflow/search.py
+
+  run-tests:
+    build:
+      context: .
+      target: dev
+    depends_on:
+      - s3
+      - awscli
+      - search
+      - content-store
+    entrypoint: ""
+    environment:
+      WAIT_HOSTS: s3:9000
+    volumes:
+      - ./tests/:/airflow/tests/
+      - ./dags:/airflow/dags/
+      - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/aws_dev_credentials:/airflow/.aws/credentials
+      - ./config/airflow.test.cfg:/airflow/airflow.cfg
+      - ./node-dependencies/package.json:/airflow/package.json
+      - ./node-dependencies/package-lock.json:/airflow/package-lock.json
+    command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/"
+    ports:
+      - "9229:9229"  # nodejs debug port

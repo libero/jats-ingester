@@ -257,11 +257,11 @@ dag = DAG('process_zip_dag',
           default_args=default_args,
           schedule_interval=None)
 
-extract_zip_files = python_operator.PythonOperator(
-    task_id='extract_archived_files_to_bucket',
-    provide_context=True,
-    python_callable=extract_archived_files_to_bucket,
-    dag=dag
+extract_zip_files = create_node_task(
+    name='extract_archived_files_to_bucket',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/extract-archived-files-to-bucket.js',
+    dag=dag,
+    use_function_caller=False
 )
 
 convert_tiff_images = python_operator.PythonOperator(

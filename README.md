@@ -59,6 +59,8 @@ AWS S3
 * `make python-tests` runs python tests only
 * `make js-tests` runs javascript tests only
 * `make debug-js-tests` runs javascript tests only using node inspect
+* `make js-integration-tests` - runs javascript tests using services to make real calls
+* `make debug-js-integration-tests` - runs javascript tests using services to make real calls using node inspect
 
 ## Documentation
 

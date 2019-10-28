@@ -16,3 +16,7 @@ module.exports.getArticleID = function(jatsXmlDoc) {
 
   throw new Error('Unable to find article ID')
 };
+
+module.exports.isJATSArticle = function(jatsXmlDoc) {
+  return jatsXmlDoc.find(jatsXPaths.ARTICLE).length > 0;
+};
