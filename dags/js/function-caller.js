@@ -38,10 +38,10 @@ async function functionCaller() {
 
   if (fetchedData) {
     console.log('Calling callable with response body');
-    returnedData = callable(fetchedData.Body);
+    returnedData = await callable(fetchedData.Body);
   } else {
     console.log('Calling callable without any arguments');
-    returnedData = callable();
+    returnedData = await callable();
   }
 
 

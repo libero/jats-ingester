@@ -209,49 +209,6 @@ def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str
         return list(uploaded_images)
 
 
-def send_article_to_content_service(upstream_task_id: str = None, **context) -> None:
-    """
-    :param upstream_task_id str: In the case of branching, specify which upstream
-                                 task to get return from
-    :param context: airflow context object
-    """
-    libero_xml = get_article_from_previous_task(context, task_id=upstream_task_id)
-    article_id = libero.get_content_id(libero_xml)
-
-    # make PUT request to service
-    response = requests.put(
-        '%s/items/%s/versions/1' % (SERVICE_URL, article_id),
-        data=etree.tostring(libero_xml, xml_declaration=True, encoding='UTF-8'),
-        headers={'content-type': 'application/xml'}
-    )
-
-    try:
-        response.raise_for_status()
-    except HTTPError as http_error:
-        # parse the xml response for readability
-        try:
-            response_xml = etree.parse(BytesIO(response.content))
-            details = response_xml.find('{urn:ietf:rfc:7807}details')
-            details = getattr(details, 'text', '')
-        except etree.XMLSyntaxError:
-            details = response.text
-
-        logger.error('HTTPError: %s - %s', response.status_code, details)
-        raise http_error
-
-    logger.info('Libero wrapped article %s sent to %s with status code %s',
-                article_id,
-                SERVICE_URL,
-                response.status_code)
-
-
-def send_post_request_to_reindex_search_service():
-    logger.info('Sending POST request to %s', SEARCH_URL)
-    response = requests.post(SEARCH_URL)
-    response.raise_for_status()
-    logger.info('RESPONSE= %s %s', response.text, response.status_code)
-
-
 # schedule_interval is None because DAG is only run when triggered
 dag = DAG('process_zip_dag',
           default_args=default_args,
@@ -313,18 +270,19 @@ wrap_article = create_node_task(
     xcom_pull=True
 )
 
-send_article = python_operator.PythonOperator(
-    task_id='send_article_to_content_service',
-    provide_context=True,
-    python_callable=send_article_to_content_service,
-    op_kwargs={'upstream_task_id': 'wrap_article_in_libero_xml'},
-    dag=dag
+send_article = create_node_task(
+    name='send_article_to_content_service',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/send-article-to-content-service.js',
+    dag=dag,
+    xcom_pull=True,
+    pull_from='wrap_article_in_libero_xml'
 )
 
-reindex_search = python_operator.PythonOperator(
-    task_id='send_post_request_to_reindex_search_service',
-    python_callable=send_post_request_to_reindex_search_service,
-    dag=dag
+reindex_search = create_node_task(
+    name='send_post_request_to_reindex_search_service',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/send-post-request-to-reindex-search-service.js',
+    dag=dag,
+    use_function_caller=False
 )
 
 
