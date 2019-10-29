@@ -1,10 +1,14 @@
 const fs = require('fs');
+
 const Zip = require('adm-zip');
+const libxmljs = require('libxmljs');
 const uuidv4 = require('uuid/v4');
+
 const getS3Client = require('../aws/get-s3-client');
+const jatsXml = require('../xml/jats-xml');
 
 
-async function extractArchivedFilesToBucket() {
+async function getJATSArticle() {
 
   function deleteFile(fileName) {
     fs.unlinkSync(fileName);
@@ -31,30 +35,33 @@ async function extractArchivedFilesToBucket() {
         return reject(error);
     }).pipe(fileStream)});
 
+  let data;
   let archive = new Zip(tempFileName);
-  s3Params = {Bucket: process.env.DESTINATION_BUCKET};
 
   for (let entry of archive.getEntries()) {
+
     if (entry.isDirectory) {
       continue;
     }
 
-    // TODO: stream data to s3 asynchronously
-    s3Params.Key = process.env.ARCHIVE_FILE_NAME.replace(new RegExp('\\.\\w+$'), '') + '/' + entry.entryName;
-    s3Params.Body = entry.getData();
+    if (entry.entryName.endsWith('.xml')) {
+      let xmlDoc = libxmljs.parseXml(entry.getData().toString());
 
-    let response = await s3.upload(s3Params, (error) => {
-      if (error) {
-        deleteFile(tempFileName);
-        throw error;
+      if (jatsXml.isJATSArticle(xmlDoc)) {
+        data = entry.getData();
+        break;
       }
-    }).promise();
-    console.log(response.Location);
+    }
+
+  }
+  deleteFile(tempFileName);
+
+  if (data) {
+    return data;
   }
 
-  // remove temp file if all succeeded
-  deleteFile(tempFileName);
+  throw new Error('Unable to find JATS article in ' + process.env.ARCHIVE_FILE_NAME);
 
 }
 
-module.exports = extractArchivedFilesToBucket;
+module.exports = getJATSArticle;
