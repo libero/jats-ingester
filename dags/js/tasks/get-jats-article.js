@@ -16,8 +16,9 @@ async function getJATSArticle() {
   }
 
   let tempFileName = '/tmp/' + uuidv4();
-  const fileStream = fs.createWriteStream(tempFileName);
+  console.log('Temp file name =', tempFileName);
 
+  let fileStream = fs.createWriteStream(tempFileName);
   let s3 = getS3Client();
 
   let s3Params = {

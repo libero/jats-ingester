@@ -107,8 +107,7 @@ dag = DAG('process_zip_dag',
 extract_zip_files = create_node_task(
     name='extract_archived_files_to_bucket',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/extract-archived-files-to-bucket.js',
-    dag=dag,
-    use_function_caller=False
+    dag=dag
 )
 
 convert_tiff_images = python_operator.PythonOperator(
@@ -128,57 +127,55 @@ update_tiff_references = create_node_task(
     name='update_tiff_references_to_jpeg_in_article',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/update-tiff-references-to-jpeg-in-article.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='get_jats_article'
 )
 
 add_missing_jpeg_extensions = create_node_task(
     name='add_missing_jpeg_extensions_in_article',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/add-missing-jpeg-extensions-in-article.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='update_tiff_references_to_jpeg_in_article'
 )
 
 strip_related_article_tags = create_node_task(
     name='strip_related_article_tags_from_article_xml',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/strip-related-article-tags.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='add_missing_jpeg_extensions_in_article'
 )
 
 strip_object_id_tags = create_node_task(
     name='strip_object_id_tags_from_article_xml',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/strip-object-id-tags.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='strip_related_article_tags_from_article_xml'
 )
 
 add_missing_uri_schemes = create_node_task(
     name='add_missing_uri_schemes',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/add-missing-uri-schemes.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='strip_object_id_tags_from_article_xml'
 )
 
 wrap_article = create_node_task(
     name='wrap_article_in_libero_xml',
-    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/wrap_article-in-libero-xml.js',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/wrap-article-in-libero-xml.js',
     dag=dag,
-    xcom_pull=True
+    get_return_from='add_missing_uri_schemes'
 )
 
 send_article = create_node_task(
     name='send_article_to_content_service',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/send-article-to-content-service.js',
     dag=dag,
-    xcom_pull=True,
-    pull_from='wrap_article_in_libero_xml'
+    get_return_from='wrap_article_in_libero_xml'
 )
 
 reindex_search = create_node_task(
     name='send_post_request_to_reindex_search_service',
     js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/send-post-request-to-reindex-search-service.js',
-    dag=dag,
-    use_function_caller=False
+    dag=dag
 )
 
 

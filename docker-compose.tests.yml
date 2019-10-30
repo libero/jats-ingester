@@ -46,16 +46,43 @@ services:
       - ./search.py:/airflow/search.py
     command: python /airflow/search.py
 
-  run-tests:
+  python-unit-tests: &tests
     build:
       context: .
       target: dev
+    entrypoint: ""
+    volumes:
+      - ./tests/:/airflow/tests/
+      - ./dags:/airflow/dags/
+      - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/aws_dev_credentials:/airflow/.aws/credentials
+      - ./config/airflow.test.cfg:/airflow/airflow.cfg
+    command: /bin/sh -c "airflow initdb && pytest --disable-socket tests/"
+
+  js-unit-tests: &js-tests
+    <<: *tests
+    volumes:
+      - ./tests/:/airflow/tests/
+      - ./dags:/airflow/dags/
+      - ./config/aws_dev_config:/airflow/.aws/config
+      - ./config/aws_dev_credentials:/airflow/.aws/credentials
+      - ./node-dependencies/package.json:/airflow/package.json
+      - ./node-dependencies/package-lock.json:/airflow/package-lock.json
+    command: node node_modules/.bin/jest /airflow/tests/js/unit/
+
+  debug-js-unit-tests:
+    <<: *js-tests
+    command: node inspect node_modules/.bin/jest /airflow/tests/js/unit/ --runInBand
+    ports:
+      - "9229:9229"  # nodejs debug port
+
+  js-integration-tests: &js-integration-tests
+    <<: *tests
     depends_on:
       - s3
       - awscli
       - search
       - content-store
-    entrypoint: ""
     environment:
       WAIT_HOSTS: s3:9000
     volumes:
@@ -66,6 +93,13 @@ services:
       - ./config/airflow.test.cfg:/airflow/airflow.cfg
       - ./node-dependencies/package.json:/airflow/package.json
       - ./node-dependencies/package-lock.json:/airflow/package-lock.json
+    # TODO: create script for next line
     command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/"
+
+  debug-js-integration-tests:
+    <<: *js-integration-tests
+    # TODO: create script for next line
+    command: /bin/bash -c "/wait && sleep 3 && node inspect node_modules/.bin/jest /airflow/tests/js/integration/ --runInBand"
     ports:
       - "9229:9229"  # nodejs debug port
+

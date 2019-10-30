@@ -12,9 +12,5 @@
   "devDependencies": {
     "aws-sdk-mock": "^4.5.0",
     "jest": "^24.9.0"
-  },
-  "scripts": {
-    "test": "jest /airflow/tests/js/unit/",
-    "debug": "node inspect node_modules/.bin/jest /airflow/tests/js/unit/ --runInBand"
   }
 }

@@ -1,0 +1,10 @@
+version: "3.4"
+
+services:
+  # overrides docker-compose.yml
+  awscli:
+    volumes:
+      - ./scripts/create-s3-buckets.sh:/src/app/create-s3-buckets.sh
+      - ./scripts/copy-assets-to-s3.sh:/src/app/copy-assets-to-s3.sh
+      - ./tests/assets/:/src/app/assets/
+    command: /bin/sh -c "./create-s3-buckets.sh && ./copy-assets-to-s3.sh"

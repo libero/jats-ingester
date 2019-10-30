@@ -12,8 +12,9 @@ async function extractArchivedFilesToBucket() {
   }
 
   let tempFileName = '/tmp/' + uuidv4();
-  const fileStream = fs.createWriteStream(tempFileName);
+  console.log('Temp file name =', tempFileName);
 
+  let fileStream = fs.createWriteStream(tempFileName);
   let s3 = getS3Client();
 
   let s3Params = {
@@ -43,9 +44,11 @@ async function extractArchivedFilesToBucket() {
     s3Params.Key = process.env.ARCHIVE_FILE_NAME.replace(new RegExp('\\.\\w+$'), '') + '/' + entry.entryName;
     s3Params.Body = entry.getData();
 
+    console.log('Uploading:', s3Params.Bucket, s3Params.Key);
     let response = await s3.upload(s3Params, (error) => {
       if (error) {
         deleteFile(tempFileName);
+        console.log('Something went wrong extracting files to s3');
         throw error;
       }
     }).promise();

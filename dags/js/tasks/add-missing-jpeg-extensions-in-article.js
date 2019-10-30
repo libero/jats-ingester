@@ -33,7 +33,9 @@ function addMissingJPEGExtensionsInArticle(xmlStringBuffer) {
   let xmlDocAsString = xmlDoc.toString(false);
 
   // actually remove formatting
-  return xmlDocAsString.replace(new RegExp('\n', 'g'), '')
+  xmlDocAsString = xmlDocAsString.replace(new RegExp('\n', 'g'), '');
+
+  return Buffer.from(xmlDocAsString);
 }
 
 module.exports = addMissingJPEGExtensionsInArticle;
