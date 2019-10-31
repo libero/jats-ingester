@@ -2,13 +2,9 @@ const fs = require('fs');
 const sharp = require('sharp');
 const uuidv4 = require('uuid/v4');
 const getS3Client = require('../aws/get-s3-client');
+const io = require('../IO/io');
 
 async function convertTiffImagesInExpandedBucketToJpegImages() {
-
-  function deleteFile(fileName) {
-    fs.unlinkSync(fileName);
-    console.log('successfully deleted ' + fileName);
-  }
 
   let s3 = getS3Client();
 
@@ -39,8 +35,8 @@ async function convertTiffImagesInExpandedBucketToJpegImages() {
         s3.getObject(s3Params).createReadStream()
           .on('end', () => {
             return resolve();
-        }).on('error', (error) => {
-            deleteFile(tempDownloadFileName);
+        }).on('error', async (error) => {
+            await io.deleteFile(tempDownloadFileName);
             return reject(error);
         }).pipe(fs.createWriteStream(tempDownloadFileName))
       });
@@ -50,7 +46,7 @@ async function convertTiffImagesInExpandedBucketToJpegImages() {
       let convertedImage = await sharp(tempDownloadFileName).jpeg().toBuffer();
 
       // we no long need the temp file for storing downloaded data
-      deleteFile(tempDownloadFileName);
+      await io.deleteFile(tempDownloadFileName);
 
       s3Params.Key = item.Key.replace('.tif', '.jpg');
       s3Params.Body = convertedImage;

@@ -2,14 +2,10 @@ const fs = require('fs');
 const Zip = require('adm-zip');
 const uuidv4 = require('uuid/v4');
 const getS3Client = require('../aws/get-s3-client');
+const io = require('../IO/io');
 
 
 async function extractArchivedFilesToBucket() {
-
-  function deleteFile(fileName) {
-    fs.unlinkSync(fileName);
-    console.log('successfully deleted ' + fileName);
-  }
 
   let tempFileName = '/tmp/' + uuidv4();
   console.log('Temp file name =', tempFileName);
@@ -27,8 +23,8 @@ async function extractArchivedFilesToBucket() {
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
         return resolve();
-    }).on('error', (error) => {
-        deleteFile(tempFileName);
+    }).on('error', async (error) => {
+        await io.deleteFile(tempFileName);
         return reject(error);
     }).pipe(fileStream)});
 
@@ -45,9 +41,9 @@ async function extractArchivedFilesToBucket() {
     s3Params.Body = entry.getData();
 
     console.log('Uploading:', s3Params.Bucket, s3Params.Key);
-    let response = await s3.upload(s3Params, (error) => {
+    let response = await s3.upload(s3Params, async (error) => {
       if (error) {
-        deleteFile(tempFileName);
+        await io.deleteFile(tempFileName);
         console.log('Something went wrong extracting files to s3');
         throw error;
       }
@@ -56,7 +52,7 @@ async function extractArchivedFilesToBucket() {
   }
 
   // remove temp file if all succeeded
-  deleteFile(tempFileName);
+  await io.deleteFile(tempFileName);
 
 }
 

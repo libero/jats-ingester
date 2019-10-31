@@ -1,9 +1,7 @@
-const fs = require('fs');
 const getS3Client = require(process.env.AIRFLOW_HOME + '/dags/js/aws/get-s3-client');
 const convertTiffImagesInExpandedBucketToJpegImages = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/convert-tiff-images-in-expanded-bucket-to-jpeg-images');
 const extractArchivedFilesToBucket = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/extract-archived-files-to-bucket');
-
-let unlinkSyncOriginal = fs.unlinkSync;
+const io = require(process.env.AIRFLOW_HOME + '/dags/js/IO/io');
 
 
 describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
@@ -21,7 +19,11 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
       SOURCE_BUCKET: 'dev-jats-ingester-incoming'
     };
 
-    fs.unlinkSync = unlinkSyncOriginal;
+    try {
+      io.deleteFile.mockRestore();
+    } catch (error) {
+
+    }
   });
 
 
@@ -41,7 +43,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     });
 
     await extractArchivedFilesToBucket();
-    fs.unlinkSync = jest.fn();
+    io.deleteFile = jest.fn();
 
     await convertTiffImagesInExpandedBucketToJpegImages();
 
@@ -59,7 +61,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
       }
     }
     expect(count).toBeGreaterThan(0);
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(0);
+    expect(io.deleteFile).toHaveBeenCalledTimes(0);
   });
 
 
@@ -79,7 +81,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     });
 
     await extractArchivedFilesToBucket();
-    fs.unlinkSync = jest.fn();
+    io.deleteFile = jest.fn();
 
     await convertTiffImagesInExpandedBucketToJpegImages();
 
@@ -99,7 +101,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     }
     // 5 image files downloaded
     expect(count).toBe(5);
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(5);
+    expect(io.deleteFile).toHaveBeenCalledTimes(5);
   });
 
 });

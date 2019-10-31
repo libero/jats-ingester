@@ -1,8 +1,6 @@
-const fs = require('fs');
 const getS3Client = require(process.env.AIRFLOW_HOME + '/dags/js/aws/get-s3-client');
 const extractArchivedFilesToBucket = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/extract-archived-files-to-bucket');
-
-let unlinkSyncOriginal = fs.unlinkSync;
+const io = require(process.env.AIRFLOW_HOME + '/dags/js/IO/io');
 
 
 describe('Test extractArchivedFilesToBucket', () => {
@@ -18,7 +16,11 @@ describe('Test extractArchivedFilesToBucket', () => {
       SOURCE_BUCKET: 'dev-jats-ingester-incoming'
     };
 
-    fs.unlinkSync = unlinkSyncOriginal;
+    try {
+      io.deleteFile.mockRestore();
+    } catch (error) {
+
+    }
   });
 
   test('using elife-00666-vor-r1.zip', async () => {
@@ -27,7 +29,7 @@ describe('Test extractArchivedFilesToBucket', () => {
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
-    fs.unlinkSync = jest.fn();
+    io.deleteFile = jest.fn();
 
     let s3 = getS3Client();
 
@@ -49,7 +51,7 @@ describe('Test extractArchivedFilesToBucket', () => {
 
     expect(response.Contents[0].Key).toBe('elife-00666-vor-r1/elife-00666.xml');
     expect(response.Contents[1].Key).toBe('elife-00666-vor-r1/fig1-v1.jpg');
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    expect(io.deleteFile).toHaveBeenCalledTimes(1);
   });
 
   test('using biorxiv-685172.meca', async () => {
@@ -58,7 +60,7 @@ describe('Test extractArchivedFilesToBucket', () => {
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
-    fs.unlinkSync = jest.fn();
+    io.deleteFile = jest.fn();
 
     let s3 = getS3Client();
 
@@ -80,7 +82,7 @@ describe('Test extractArchivedFilesToBucket', () => {
     expect(response.Contents[0].Key).toBe('biorxiv-685172/content/685172.pdf');
     expect(response.Contents[1].Key).toBe('biorxiv-685172/content/685172.xml');
     expect(response.Contents[2].Key).toBe('biorxiv-685172/content/685172v1_fig1.tif');
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    expect(io.deleteFile).toHaveBeenCalledTimes(1);
   });
 
 });

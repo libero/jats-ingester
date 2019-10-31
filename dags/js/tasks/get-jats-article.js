@@ -5,15 +5,11 @@ const libxmljs = require('libxmljs');
 const uuidv4 = require('uuid/v4');
 
 const getS3Client = require('../aws/get-s3-client');
+const io = require('../IO/io');
 const jatsXml = require('../xml/jats-xml');
 
 
 async function getJATSArticle() {
-
-  function deleteFile(fileName) {
-    fs.unlinkSync(fileName);
-    console.log('successfully deleted ' + fileName);
-  }
 
   let tempFileName = '/tmp/' + uuidv4();
   console.log('Temp file name =', tempFileName);
@@ -31,8 +27,8 @@ async function getJATSArticle() {
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
         return resolve();
-    }).on('error', (error) => {
-        deleteFile(tempFileName);
+    }).on('error', async (error) => {
+        await io.deleteFile(tempFileName);
         return reject(error);
     }).pipe(fileStream)});
 
@@ -55,7 +51,7 @@ async function getJATSArticle() {
     }
 
   }
-  deleteFile(tempFileName);
+  await io.deleteFile(tempFileName);
 
   if (data) {
     return data;
