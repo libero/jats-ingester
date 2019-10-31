@@ -68,9 +68,15 @@ AWS S3
 * `make tests` runs all tests.
 * `make python-tests` runs python tests only
 * `make js-tests` runs javascript tests only
-* `make debug-js-tests` runs javascript tests only using node inspect
 * `make js-integration-tests` - runs javascript tests using services to make real calls
+* `make debug-js-tests` runs javascript tests only using node inspect
 * `make debug-js-integration-tests` - runs javascript tests using services to make real calls using node inspect
+
+After running the following add `chrome://inspect` the following to your browser navigation bar:
+* `make remote-debug-js-tests` runs javascript tests only using node inspect accessible remotely
+* `make remote-debug-js-integration-tests` - runs javascript tests using services to make real calls using node inspect accessible remotely
+
+Be sure to add `debugger;` to [inspect](https://nodejs.org/en/docs/guides/debugging-getting-started/) your test code to set a break point.
 
 ## Documentation
 

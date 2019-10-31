@@ -50,12 +50,6 @@ services:
       - ./config/aws_dev_credentials:/airflow/.aws/credentials
     command: node node_modules/.bin/jest /airflow/tests/js/unit/
 
-  debug-js-unit-tests:
-    <<: *js-tests
-    command: node inspect node_modules/.bin/jest /airflow/tests/js/unit/ --runInBand
-    ports:
-      - "9229:9229"  # nodejs debug port
-
   js-integration-tests: &js-integration-tests
     <<: *tests
     depends_on:
@@ -72,10 +66,29 @@ services:
     # TODO: create script for next line
     command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/"
 
+  debug-js-unit-tests:
+    <<: *js-tests
+    command: node inspect node_modules/.bin/jest /airflow/tests/js/unit/ --runInBand
+    ports:
+      - "9229:9229"  # nodejs debug port
+
   debug-js-integration-tests:
     <<: *js-integration-tests
     # TODO: create script for next line
     command: /bin/bash -c "/wait && sleep 3 && node inspect node_modules/.bin/jest /airflow/tests/js/integration/ --runInBand"
+    ports:
+      - "9229:9229"  # nodejs debug port
+
+  remote-debug-js-unit-tests:
+    <<: *js-tests
+    command: node --inspect-brk=0.0.0.0:9229 node_modules/.bin/jest /airflow/tests/js/unit/ --runInBand
+    ports:
+      - "9229:9229"  # nodejs debug port
+
+  remote-debug-js-integration-tests:
+    <<: *js-integration-tests
+    # TODO: create script for next line
+    command: /bin/bash -c "/wait && sleep 3 && node --inspect-brk=0.0.0.0:9229 node_modules/.bin/jest /airflow/tests/js/integration/ --runInBand"
     ports:
       - "9229:9229"  # nodejs debug port
 
