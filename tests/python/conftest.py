@@ -2,7 +2,6 @@ import os
 import socket
 
 import pytest
-import responses
 from airflow.utils import timezone
 from airflow.utils.db import create_session
 from airflow.utils.state import State
@@ -123,11 +122,6 @@ def set_remote_logs_env_var():
     yield
     del os.environ['AIRFLOW_CONN_REMOTE_LOGS']
 
-
-@pytest.fixture
-def mocked_responses():
-    with responses.RequestsMock() as response:
-        yield response
 
 
 def bash_command_teardown(bash_operator_callable):
