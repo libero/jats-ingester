@@ -39,6 +39,8 @@ installed. If you are unable to run the commands below because your system doesn
 have `gnu make` installed, you can try to install it or copy and paste commands
 found in the `Makefile` into your command line interface.
 
+Run `make` or `make help` for a full list of commands.
+
 * `make start` builds and/or runs the site locally configured for development purposes.
 * `make stop` stops containers and cleans up any anonymous volumes.
 
@@ -52,6 +54,12 @@ AWS S3
  - `http://localhost:9000`
  - username: `longkey`
  - password: `verysecretkey`
+ 
+ By default, running `make start` only copies a single, small zip file to the 
+ `dev-jats-ingester-incoming` bucket.
+ 
+ Running `make start-all-assets` will copy all of the files in the `/tests/assets`
+ directory into the `dev-jats-ingester-incoming` bucket. 
  
 ### Running tests
 

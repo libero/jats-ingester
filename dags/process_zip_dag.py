@@ -3,38 +3,12 @@ DAG processes a zip file stored in an AWS S3 bucket and prepares the extracted x
 file for Libero content API and sends to the content store via a PUT request.
 """
 import logging
-import re
-from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
-from io import BytesIO
-from tempfile import TemporaryFile
-from typing import List
 
-from airflow import DAG, configuration
-from airflow.operators import python_operator
+from airflow import DAG
 from airflow.utils import timezone
 
-from wand.image import Image
-
-from libero.aws import get_s3_client, list_bucket_keys_iter
-from libero.context_facades import (
-    get_file_name_passed_to_dag_run_conf_file,
-    get_previous_task_name,
-    get_return_value_from_previous_task
-)
 from libero.operators import create_node_task
-
-
-# settings
-ARTICLE_ASSETS_URL = configuration.conf.get('libero', 'article_assets_url')
-SOURCE_BUCKET = configuration.conf.get('libero', 'source_bucket_name')
-DESTINATION_BUCKET = configuration.conf.get('libero', 'destination_bucket_name')
-COMPLETED_TASKS_BUCKET = configuration.conf.get('libero', 'completed_tasks_bucket_name')
-SERVICE_NAME = configuration.conf.get('libero', 'service_name')
-SERVICE_URL = configuration.conf.get('libero', 'service_url')
-TEMP_DIRECTORY = configuration.conf.get('libero', 'temp_directory_path') or None
-SEARCH_URL = configuration.conf.get('libero', 'search_url')
-WORKERS = configuration.conf.get('libero', 'thread_pool_workers') or None
 
 logger = logging.getLogger(__name__)
 
@@ -50,55 +24,6 @@ default_args = {
 }
 
 
-def convert_image_in_s3_to_jpeg(key) -> str:
-    """
-    Downloads a tiff file, converts it to jpeg and uploads it to a predefined bucket.
-    This function is intended to be used in a Pool of workers.
-
-    :param key: cloud storage key of tiff file to download and convert to jpeg
-    :return str: name of file uploaded
-    """
-    s3 = get_s3_client()
-    with TemporaryFile(dir=TEMP_DIRECTORY) as temp_tiff_file:
-        s3.download_fileobj(
-            Bucket=DESTINATION_BUCKET,
-            Key=key,
-            Fileobj=temp_tiff_file
-        )
-        temp_tiff_file.seek(0)
-
-        logger.info('converting %s to jpeg', key)
-
-        temp_jpeg = BytesIO()
-        with Image(file=temp_tiff_file) as img:
-            img.format = 'jpeg'
-            img.save(file=temp_jpeg)
-
-        key = re.sub(r'\.\w+$', '.jpg', key)
-        s3.put_object(
-            Bucket=DESTINATION_BUCKET,
-            Key=key,
-            Body=temp_jpeg.getvalue()
-        )
-        return key
-
-
-def convert_tiff_images_in_expanded_bucket_to_jpeg_images(**context) -> List[str]:
-    zip_file_name = get_file_name_passed_to_dag_run_conf_file(context)
-    prefix = re.sub(r'\.\w+$', '/', zip_file_name)
-    tiffs = {key
-             for key in list_bucket_keys_iter(Bucket=DESTINATION_BUCKET, Prefix=prefix)
-             if key.endswith('.tif')}
-
-    thread_options = {
-        'max_workers': WORKERS,
-        'thread_name_prefix': 'converting_tiffs_%s_' % zip_file_name
-    }
-    with ThreadPoolExecutor(**thread_options) as p:
-        uploaded_images = p.map(convert_image_in_s3_to_jpeg, tiffs)
-        return list(uploaded_images)
-
-
 # schedule_interval is None because DAG is only run when triggered
 dag = DAG('process_zip_dag',
           default_args=default_args,
@@ -110,10 +35,9 @@ extract_zip_files = create_node_task(
     dag=dag
 )
 
-convert_tiff_images = python_operator.PythonOperator(
-    task_id='convert_tiff_images_in_expanded_bucket_to_jpeg_images',
-    provide_context=True,
-    python_callable=convert_tiff_images_in_expanded_bucket_to_jpeg_images,
+convert_tiff_images = create_node_task(
+    name='convert_tiff_images_in_expanded_bucket_to_jpeg_images',
+    js_task_script_path='${AIRFLOW_HOME}/dags/js/tasks/convert-tiff-images-in-expanded-bucket-to-jpeg-images.js',
     dag=dag
 )
 

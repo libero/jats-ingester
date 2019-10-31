@@ -28,24 +28,6 @@ services:
       AWS_ACCESS_KEY_ID: longkey
       AWS_SECRET_ACCESS_KEY: verysecretkey
 
-  content-store:
-    build:
-      context: .
-      target: dev
-    entrypoint: ""
-    volumes:
-      - ./content-store.py:/airflow/content-store.py
-    command: python /airflow/content-store.py
-
-  search:
-    build:
-      context: .
-      target: dev
-    entrypoint: ""
-    volumes:
-      - ./search.py:/airflow/search.py
-    command: python /airflow/search.py
-
   python-unit-tests: &tests
     build:
       context: .
@@ -66,8 +48,6 @@ services:
       - ./dags:/airflow/dags/
       - ./config/aws_dev_config:/airflow/.aws/config
       - ./config/aws_dev_credentials:/airflow/.aws/credentials
-      - ./node-dependencies/package.json:/airflow/package.json
-      - ./node-dependencies/package-lock.json:/airflow/package-lock.json
     command: node node_modules/.bin/jest /airflow/tests/js/unit/
 
   debug-js-unit-tests:
@@ -81,8 +61,6 @@ services:
     depends_on:
       - s3
       - awscli
-      - search
-      - content-store
     environment:
       WAIT_HOSTS: s3:9000
     volumes:
@@ -91,8 +69,6 @@ services:
       - ./config/aws_dev_config:/airflow/.aws/config
       - ./config/aws_dev_credentials:/airflow/.aws/credentials
       - ./config/airflow.test.cfg:/airflow/airflow.cfg
-      - ./node-dependencies/package.json:/airflow/package.json
-      - ./node-dependencies/package-lock.json:/airflow/package-lock.json
     # TODO: create script for next line
     command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/"
 

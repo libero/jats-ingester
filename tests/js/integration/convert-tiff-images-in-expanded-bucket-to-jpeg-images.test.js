@@ -1,11 +1,12 @@
 const fs = require('fs');
 const getS3Client = require(process.env.AIRFLOW_HOME + '/dags/js/aws/get-s3-client');
+const convertTiffImagesInExpandedBucketToJpegImages = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/convert-tiff-images-in-expanded-bucket-to-jpeg-images');
 const extractArchivedFilesToBucket = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/extract-archived-files-to-bucket');
 
 let unlinkSyncOriginal = fs.unlinkSync;
 
 
-describe('Test extractArchivedFilesToBucket', () => {
+describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
 
   beforeEach(() => {
     process.env = {
@@ -13,7 +14,9 @@ describe('Test extractArchivedFilesToBucket', () => {
       AIRFLOW_CTX_TASK_ID: 'task_1',
       AIRFLOW_CTX_DAG_RUN_ID: 'dag_run_1',
       AIRFLOW_CTX_EXECUTION_DATE: new Date(2019, 1, 1).toISOString(),
+      ARCHIVE_FILE_NAME: 'elife-00666-vor-r1.zip',
       COMPLETED_TASKS_BUCKET: 'dev-jats-ingester-completed-tasks',
+      DESTINATION_BUCKET: 'dev-jats-ingester-expanded',
       ENDPOINT_URL: 'http://s3:9000',
       SOURCE_BUCKET: 'dev-jats-ingester-incoming'
     };
@@ -21,13 +24,13 @@ describe('Test extractArchivedFilesToBucket', () => {
     fs.unlinkSync = unlinkSyncOriginal;
   });
 
+
   test('using elife-00666-vor-r1.zip', async () => {
 
-    let destinationBucket = 'dev-jats-ingester-extract-archive-00666';
+    let destinationBucket = 'dev-jats-ingester-convert-tiff-00666';
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
-    fs.unlinkSync = jest.fn();
 
     let s3 = getS3Client();
 
@@ -37,8 +40,10 @@ describe('Test extractArchivedFilesToBucket', () => {
       }
     });
 
-
     await extractArchivedFilesToBucket();
+    fs.unlinkSync = jest.fn();
+
+    await convertTiffImagesInExpandedBucketToJpegImages();
 
     let s3Params = {Bucket: destinationBucket, Prefix: 'elife-00666-vor-r1'};
     let response = await s3.listObjectsV2(s3Params, (error) => {
@@ -47,18 +52,23 @@ describe('Test extractArchivedFilesToBucket', () => {
       }
     }).promise();
 
-    expect(response.Contents[0].Key).toBe('elife-00666-vor-r1/elife-00666.xml');
-    expect(response.Contents[1].Key).toBe('elife-00666-vor-r1/fig1-v1.jpg');
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    let count = 0;
+    for (let item of response.Contents) {
+      if (item.Key.endsWith('.jpg')) {
+        count++;
+      }
+    }
+    expect(count).toBeGreaterThan(0);
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(0);
   });
+
 
   test('using biorxiv-685172.meca', async () => {
 
-    let destinationBucket = 'dev-jats-ingester-extract-archive-685172';
+    let destinationBucket = 'dev-jats-ingester-convert-tiff-685172';
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
-    fs.unlinkSync = jest.fn();
 
     let s3 = getS3Client();
 
@@ -69,6 +79,9 @@ describe('Test extractArchivedFilesToBucket', () => {
     });
 
     await extractArchivedFilesToBucket();
+    fs.unlinkSync = jest.fn();
+
+    await convertTiffImagesInExpandedBucketToJpegImages();
 
     let s3Params = {Bucket: destinationBucket, Prefix: 'biorxiv-685172'};
     let response = await s3.listObjectsV2(s3Params, (error) => {
@@ -77,10 +90,16 @@ describe('Test extractArchivedFilesToBucket', () => {
       }
     }).promise();
 
-    expect(response.Contents[0].Key).toBe('biorxiv-685172/content/685172.pdf');
-    expect(response.Contents[1].Key).toBe('biorxiv-685172/content/685172.xml');
-    expect(response.Contents[2].Key).toBe('biorxiv-685172/content/685172v1_fig1.tif');
-    expect(fs.unlinkSync).toHaveBeenCalledTimes(1);
+    let count = 0;
+    for (let item of response.Contents) {
+      if (item.Key.endsWith('.jpg')) {
+        expect(item.Size).toBeGreaterThan(0);
+        count++;
+      }
+    }
+    // 5 image files downloaded
+    expect(count).toBe(5);
+    expect(fs.unlinkSync).toHaveBeenCalledTimes(5);
   });
 
 });

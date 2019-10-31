@@ -21,8 +21,6 @@ RUN pip install -U pip \
     && apt-get update -yq \
     && apt-get install -yq --no-install-recommends \
         build-essential \
-        libmagickwand-dev \
-        procps \
         curl \
     && curl -sL https://deb.nodesource.com/setup_10.x | bash - \
     && apt-get install -yq --no-install-recommends nodejs \
