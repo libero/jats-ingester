@@ -33,10 +33,10 @@ async function getObjectToFile(s3Params) {
   await new Promise((resolve, reject) => {
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
-        return resolve();
+        resolve();
     }).on('error', async (error) => {
         await io.deleteFile(tempDownloadFileName);
-        return reject(error);
+        reject(error);
     }).pipe(fs.createWriteStream(tempDownloadFileName))
   });
   return tempDownloadFileName;
