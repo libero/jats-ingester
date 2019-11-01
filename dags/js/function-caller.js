@@ -75,10 +75,8 @@ module.exports = functionCaller;
 // if this script has been called directly then run the code in the if block
 // equivalent to python's __name__ == '__main__' comparison
 if (!module.parent) {
-  try {
-    functionCaller();
-  } catch (error) {
+  functionCaller().catch((error) => {
     console.error(error);
     process.exit(1);
-  }
+  });
 }
