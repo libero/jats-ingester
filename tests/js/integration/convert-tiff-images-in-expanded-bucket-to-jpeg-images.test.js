@@ -1,7 +1,7 @@
-const getS3Client = require(process.env.AIRFLOW_HOME + '/dags/js/aws/get-s3-client');
+const s3Utils = require(process.env.AIRFLOW_HOME + '/dags/js/aws/s3-utils');
 const convertTiffImagesInExpandedBucketToJpegImages = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/convert-tiff-images-in-expanded-bucket-to-jpeg-images');
 const extractArchivedFilesToBucket = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/extract-archived-files-to-bucket');
-const io = require(process.env.AIRFLOW_HOME + '/dags/js/IO/io');
+const fu = require(process.env.AIRFLOW_HOME + '/dags/js/IO/file-utils');
 
 
 describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
@@ -20,7 +20,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     };
 
     try {
-      io.deleteFile.mockRestore();
+      fu.deleteFile.mockRestore();
     } catch (error) {
 
     }
@@ -34,25 +34,15 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
 
-    let s3 = getS3Client();
-
-    s3.createBucket({Bucket: destinationBucket}, (error) => {
-      if (error) {
-        throw error;
-      }
-    });
+    s3Utils.createBucket({Bucket: destinationBucket});
 
     await extractArchivedFilesToBucket();
-    io.deleteFile = jest.fn();
+    fu.deleteFile = jest.fn();
 
     await convertTiffImagesInExpandedBucketToJpegImages();
 
     let s3Params = {Bucket: destinationBucket, Prefix: 'elife-00666-vor-r1'};
-    let response = await s3.listObjectsV2(s3Params, (error) => {
-      if (error) {
-        throw error;
-      }
-    }).promise();
+    let response = await s3Utils.listObjectsV2(s3Params);
 
     let count = 0;
     for (let item of response.Contents) {
@@ -61,7 +51,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
       }
     }
     expect(count).toBeGreaterThan(0);
-    expect(io.deleteFile).toHaveBeenCalledTimes(0);
+    expect(fu.deleteFile).toHaveBeenCalledTimes(0);
   });
 
 
@@ -72,25 +62,15 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
 
-    let s3 = getS3Client();
-
-    s3.createBucket({Bucket: destinationBucket}, (error) => {
-      if (error) {
-        throw error;
-      }
-    });
+    s3Utils.createBucket({Bucket: destinationBucket});
 
     await extractArchivedFilesToBucket();
-    io.deleteFile = jest.fn();
+    fu.deleteFile = jest.fn();
 
     await convertTiffImagesInExpandedBucketToJpegImages();
 
     let s3Params = {Bucket: destinationBucket, Prefix: 'biorxiv-685172'};
-    let response = await s3.listObjectsV2(s3Params, (error) => {
-      if (error) {
-        throw error;
-      }
-    }).promise();
+    let response = await s3Utils.listObjectsV2(s3Params);
 
     let count = 0;
     for (let item of response.Contents) {
@@ -101,7 +81,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     }
     // 5 image files downloaded
     expect(count).toBe(5);
-    expect(io.deleteFile).toHaveBeenCalledTimes(5);
+    expect(fu.deleteFile).toHaveBeenCalledTimes(5);
   });
 
 });

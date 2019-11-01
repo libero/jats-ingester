@@ -13,6 +13,7 @@ jest.mock(CALLABLE_SCRIPT_PATH);
 const callable = require(CALLABLE_SCRIPT_PATH);
 
 
+//TODO: rewrite using integration tests
 describe('Test functionCaller', () => {
 
   beforeEach(() => {

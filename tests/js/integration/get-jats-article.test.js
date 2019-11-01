@@ -1,7 +1,7 @@
 const libxmljs = require('libxmljs');
 const getJATSArticle = require(process.env.AIRFLOW_HOME + '/dags/js/tasks/get-jats-article');
 const jatsXml = require(process.env.AIRFLOW_HOME + '/dags/js/xml/jats-xml');
-const io = require(process.env.AIRFLOW_HOME + '/dags/js/IO/io');
+const fu = require(process.env.AIRFLOW_HOME + '/dags/js/IO/file-utils');
 
 
 describe('test getJATSArticle', () => {
@@ -20,7 +20,7 @@ describe('test getJATSArticle', () => {
     };
 
     try {
-      io.deleteFile.mockRestore();
+      fu.deleteFile.mockRestore();
     } catch (error) {
 
     }
@@ -28,13 +28,13 @@ describe('test getJATSArticle', () => {
 
   test('returns a jats article buffer', async () => {
 
-    io.deleteFile = jest.fn();
+    fu.deleteFile = jest.fn();
 
     let jatsArticleBuffer = await getJATSArticle();
     let jatsArticle = libxmljs.parseXml(jatsArticleBuffer.toString());
 
     expect(jatsXml.isJATSArticle(jatsArticle)).toBeTruthy();
-    expect(io.deleteFile).toHaveBeenCalledTimes(1);
+    expect(fu.deleteFile).toHaveBeenCalledTimes(1);
   });
 
   // TODO: create test with zip without jats article
