@@ -12,10 +12,12 @@ Contents:
     - [Architecture](#architecture)
     - [DAGs](#dags)
     - [Configuration](#configuration)
+    - [Configuring AWS](#configuring-aws)
     - [Tests](#tests)
     - [Test utilities](#test-utilities)
     - [Testing caveat](#testing-caveat)
     - [Maintenance](#maintenance)
+    - [Running DAG tasks using Javascript](#running-dag-tasks-using-javascript)
  - [Getting help](#getting-help)
 
 ## Development
@@ -28,7 +30,7 @@ Contents:
 ### Before getting started
 In order to use asset files (zip files, xml files, etc), for testing or to run
 the project locally, make sure you have [Git LFS](https://git-lfs.github.com/) 
-installed as the `tests/assets/` will not only contain a representation of files
+installed as the `tests/assets/` will only contain a representation of files
 rather than the actual files. [Git LFS](https://git-lfs.github.com/) will take
 care of downloading/uploading large files.
 
@@ -38,6 +40,8 @@ Typically, MacOS and most Linux distributions come with [gnu make](https://www.g
 installed. If you are unable to run the commands below because your system doesn't 
 have `gnu make` installed, you can try to install it or copy and paste commands
 found in the `Makefile` into your command line interface.
+
+Run `make` or `make help` for a full list of commands.
 
 * `make start` builds and/or runs the site locally configured for development purposes.
 * `make stop` stops containers and cleans up any anonymous volumes.
@@ -53,12 +57,26 @@ AWS S3
  - username: `longkey`
  - password: `verysecretkey`
  
+ By default, running `make start` only copies a single, small zip file to the 
+ `dev-jats-ingester-incoming` bucket.
+ 
+ Running `make start-all-assets` will copy all of the files in the `/tests/assets`
+ directory into the `dev-jats-ingester-incoming` bucket. 
+ 
 ### Running tests
 
 * `make tests` runs all tests.
 * `make python-tests` runs python tests only
 * `make js-tests` runs javascript tests only
+* `make js-integration-tests` - runs javascript tests using services to make real calls
 * `make debug-js-tests` runs javascript tests only using node inspect
+* `make debug-js-integration-tests` - runs javascript tests using services to make real calls using node inspect
+
+After running the following add `chrome://inspect` the following to your browser navigation bar:
+* `make remote-debug-js-tests` runs javascript tests only using node inspect accessible remotely
+* `make remote-debug-js-integration-tests` - runs javascript tests using services to make real calls using node inspect accessible remotely
+
+Be sure to add `debugger;` to [inspect](https://nodejs.org/en/docs/guides/debugging-getting-started/) your test code to set a break point.
 
 ## Documentation
 
@@ -107,10 +125,10 @@ from airflow import configuration
 SEARCH_URL = configuration.conf.get('libero', 'search_url')
 ```
 
-Apache Airflow uses the [boto library](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-to interface with AWS services using their AWSHook. Refer to the [boto library
-documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration) 
-regarding configuration relating to connecting to AWS services.
+
+### Configuring AWS
+Whether you're using the Apache Airflow AWSHook/S3Hook, `aws cli` or `aws-sdk` 
+library, see the following regarding [configuration and supplying credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html).
 
 ### Tests
 Tests are run using [pytest](https://pytest.org/en/latest/). Test files are 
@@ -199,6 +217,44 @@ Unfortunately there is some maintenance required when running Airflow.
 created and are added to the docker image during the docker image build. More 
 information can be found in the maintenance DAGs repository.
 
+### Running DAG tasks using Javascript
+Use the `libero.operators.create_node_task` to simplify running tasks written in 
+javascript:
+
+```python
+from airflow import DAG
+
+from libero.operators import create_node_task
+
+dag = DAG('my_dag')
+
+js_task = create_node_task(
+    name='my_js_task',
+    js_task_script_path='/path/to/script.js',
+    dag=dag
+)
+``` 
+
+Apache Airflow allows tasks to pass the return value from a previously run task.
+You can do this by adding the `get_return_from` keyword argument like so:
+```python
+js_task = create_node_task(
+    name='my_js_task',
+    js_task_script_path='/path/to/script.js',
+    dag=dag,
+    get_return_from='my_previous_task_name'
+)
+```
+Use the `env` keyword argument to supply key-value pairs. These will be accessible 
+in your `.js` scripts via `process.env`:
+```python
+js_task = create_node_task(
+    name='my_js_task',
+    js_task_script_path='/path/to/script.js',
+    dag=dag,
+    env={'key': 'value'}  # now available as process.env.key
+)
+```
 
 ## Getting help
 

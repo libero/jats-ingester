@@ -13,6 +13,7 @@ jest.mock(CALLABLE_SCRIPT_PATH);
 const callable = require(CALLABLE_SCRIPT_PATH);
 
 
+//TODO: rewrite using integration tests
 describe('Test functionCaller', () => {
 
   beforeEach(() => {
@@ -88,7 +89,7 @@ describe('Test functionCaller', () => {
     try {
       await functionCaller();
     } catch (error){
-      expect(error).toBe("return value from /airflow/tests/js/test-callable.js is not of type Buffer");
+      expect(error.message).toBe("return value from /airflow/tests/js/test-callable.js is not of type Buffer");
     }
   });
 

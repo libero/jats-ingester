@@ -3,15 +3,15 @@
   "description": "Javascript files to be executed by Apache Airflow",
   "version": "0.0.0",
   "dependencies": {
+    "adm-zip": "^0.4.13",
     "aws-sdk": "^2.548.0",
-    "libxmljs": "^0.19.7"
+    "axios": "^0.19.0",
+    "libxmljs": "^0.19.7",
+    "sharp": "^0.23.2",
+    "uuid": "^3.3.3"
   },
   "devDependencies": {
     "aws-sdk-mock": "^4.5.0",
     "jest": "^24.9.0"
-  },
-  "scripts": {
-    "test": "jest",
-    "debug": "node inspect node_modules/.bin/jest --runInBand"
   }
 }

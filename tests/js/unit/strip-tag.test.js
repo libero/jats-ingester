@@ -1,6 +1,7 @@
-const stripRelatedArticleTags = require(process.env.AIRFLOW_HOME + '/dags/js/xml/strip-related-article-tags.js');
+const jatsXpaths = require(process.env.AIRFLOW_HOME + '/dags/js/xml/jats-xpaths');
+const stripTag = require(process.env.AIRFLOW_HOME + '/dags/js/xml/strip-tag.js');
 
-test('strips <related-article> tags from xml', () => {
+test('strips specified tag from xml', () => {
   let xmlStringWithRelatedArticleTag = '<?xml version="1.0" encoding="UTF-8"?>' +
                                        '<article>' +
                                          '<front>' +
@@ -10,8 +11,6 @@ test('strips <related-article> tags from xml', () => {
                                          '</front>' +
                                        '</article>';
 
-  let xmlBufferWithRelatedArticleTag = Buffer.from(xmlStringWithRelatedArticleTag, "binary");
-
   let xmlStringWithoutRelatedArticleTag = '<?xml version="1.0" encoding="UTF-8"?>' +
                                           '<article>' +
                                             '<front>' +
@@ -19,11 +18,9 @@ test('strips <related-article> tags from xml', () => {
                                             '</front>' +
                                           '</article>';
 
-  let xmlBufferWithoutRelatedArticleTag = Buffer.from(xmlStringWithoutRelatedArticleTag, "binary");                                        
+  let result = stripTag(xmlStringWithRelatedArticleTag, jatsXpaths.RELATED_ARTICLE);
+  expect(result).toBe(xmlStringWithoutRelatedArticleTag);
 
-  let result = stripRelatedArticleTags(xmlBufferWithRelatedArticleTag);
-  expect(result.toString()).toBe(xmlStringWithoutRelatedArticleTag);
-
-  result = stripRelatedArticleTags(xmlBufferWithoutRelatedArticleTag);
-  expect(result.toString()).toBe(xmlStringWithoutRelatedArticleTag);
+  result = stripTag(xmlStringWithoutRelatedArticleTag, jatsXpaths.RELATED_ARTICLE);
+  expect(result).toBe(xmlStringWithoutRelatedArticleTag);
 });
