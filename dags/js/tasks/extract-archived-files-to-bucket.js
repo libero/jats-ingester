@@ -1,3 +1,4 @@
+const fs = require('fs');
 const Zip = require('adm-zip');
 const s3Utils = require('../aws/s3-utils');
 const fu = require('../IO/file-utils');
@@ -10,6 +11,8 @@ async function extractArchivedFilesToBucket() {
     Key: process.env.ARCHIVE_FILE_NAME
   };
   let tempFileName = await s3Utils.getObjectToFile(s3Params);
+
+  console.log(tempFileName, 'File size after awaiting getObjectToFile:', fs.statSync(tempFileName).size);
 
   let archive = new Zip(tempFileName);
   s3Params = {Bucket: process.env.DESTINATION_BUCKET};
