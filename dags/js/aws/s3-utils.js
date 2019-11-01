@@ -30,15 +30,21 @@ async function getObjectToFile(s3Params) {
   console.log('Temp download file name =', tempDownloadFileName);
 
   console.log('Getting the following from S3: ', s3Params);
+
   await new Promise((resolve, reject) => {
+
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
+        console.log(tempDownloadFileName, 'File size on end:', fs.statSync(tempDownloadFileName).size);
         resolve();
     }).on('error', async (error) => {
+        console.log(tempDownloadFileName, 'File size on error:', fs.statSync(tempDownloadFileName).size);
         await io.deleteFile(tempDownloadFileName);
         reject(error);
     }).pipe(fs.createWriteStream(tempDownloadFileName))
+
   });
+
   return tempDownloadFileName;
 }
 
