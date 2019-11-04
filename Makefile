@@ -27,7 +27,7 @@ stop:
 
 .PHONY: shell
 shell:
-	docker-compose -f docker-compose.tests.yml run --rm --service-ports debug-js-integration-tests bash
+	docker-compose -f docker-compose.tests.yml run --rm --service-ports --no-deps debug-js-integration-tests bash
 
 .PHONY: python-tests
 python-tests:
