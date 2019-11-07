@@ -33,15 +33,21 @@ async function getObjectToFile(s3Params) {
 
   await new Promise((resolve, reject) => {
 
+    let writable = fs.createWriteStream(tempDownloadFileName);
+    writable.on('close', () => {
+      console.log('Writable stream closed');
+      resolve();
+    });
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
+        // hypothesis: this is performed when the readable stream has been completely read, but the writable stream
+        // may still be written
         console.log(tempDownloadFileName, 'File size on end:', fs.statSync(tempDownloadFileName).size);
-        resolve();
     }).on('error', async (error) => {
         console.log(tempDownloadFileName, 'File size on error:', fs.statSync(tempDownloadFileName).size);
         await io.deleteFile(tempDownloadFileName);
         reject(error);
-    }).pipe(fs.createWriteStream(tempDownloadFileName))
+    }).pipe(writable);
 
   });
 
