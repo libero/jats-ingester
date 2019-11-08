@@ -31,7 +31,7 @@ describe('Test extractArchivedFilesToBucket', () => {
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
     fu.deleteFile = jest.fn();
 
-    s3Utils.createBucket({Bucket: destinationBucket});
+    await s3Utils.createBucket({Bucket: destinationBucket});
 
 
     // test seems to be declared green here, even if the rest is executed
@@ -54,7 +54,7 @@ describe('Test extractArchivedFilesToBucket', () => {
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
     fu.deleteFile = jest.fn();
 
-    s3Utils.createBucket({Bucket: destinationBucket});
+    await s3Utils.createBucket({Bucket: destinationBucket});
 
     await extractArchivedFilesToBucket();
 

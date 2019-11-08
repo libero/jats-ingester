@@ -34,7 +34,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
 
-    s3Utils.createBucket({Bucket: destinationBucket});
+    await s3Utils.createBucket({Bucket: destinationBucket});
 
     await extractArchivedFilesToBucket();
     fu.deleteFile = jest.fn();
@@ -62,7 +62,7 @@ describe('Test convertTiffImagesInExpandedBucketToJpegImages', () => {
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
 
-    s3Utils.createBucket({Bucket: destinationBucket});
+    await s3Utils.createBucket({Bucket: destinationBucket});
 
     await extractArchivedFilesToBucket();
     fu.deleteFile = jest.fn();

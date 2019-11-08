@@ -4,11 +4,9 @@ const io = require('../IO/file-utils');
 const uuidv4 = require('uuid/v4');
 
 
-function createBucket(s3Params) {
+async function createBucket(s3Params) {
   let s3 = this.getS3Client();
-  s3.createBucket(s3Params, (error) => {
-    if (error) throw error;
-  });
+  await s3.createBucket(s3Params).promise();
 }
 
 async function getObject(s3Params) {
