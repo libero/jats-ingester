@@ -12,11 +12,7 @@ async function createBucket(s3Params) {
 async function getObject(s3Params) {
   let s3 = this.getS3Client();
   console.log('Getting the following from S3: ', s3Params);
-  let response = await s3.getObject(s3Params, (error) => {
-    if (error) {
-      throw error;
-    }
-  }).promise();
+  let response = await s3.getObject(s3Params).promise();
   console.log('Data received from S3: ', response);
   return response;
 }
