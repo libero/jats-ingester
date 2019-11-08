@@ -43,7 +43,6 @@ describe('Test extractArchivedFilesToBucket', () => {
     expect(response.Contents[0].Key).toBe('elife-00666-vor-r1/elife-00666.xml');
     expect(response.Contents[1].Key).toBe('elife-00666-vor-r1/fig1-v1.jpg');
     expect(fu.deleteFile).toHaveBeenCalledTimes(1);
-    console.log('end of test');
   });
 
   test('using biorxiv-685172.meca', async () => {
