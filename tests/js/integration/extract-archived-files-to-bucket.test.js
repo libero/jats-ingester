@@ -34,7 +34,6 @@ describe('Test extractArchivedFilesToBucket', () => {
     await s3Utils.createBucket({Bucket: destinationBucket});
 
 
-    // test seems to be declared green here, even if the rest is executed
     await extractArchivedFilesToBucket();
 
     let s3Params = {Bucket: destinationBucket, Prefix: 'elife-00666-vor-r1'};
