@@ -3,7 +3,7 @@ const util = require('util');
 
 
 module.exports.deleteFile = async (filePath) => {
-  if (fs.existsSync(filePath)) {
+  if (await util.promisify(fs.exists)(filePath)) {
     await util.promisify(fs.unlink)(filePath);
     console.log('successfully deleted ' + filePath);
   } else {
