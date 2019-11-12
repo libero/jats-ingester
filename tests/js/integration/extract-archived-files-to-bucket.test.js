@@ -21,6 +21,7 @@ describe('Test extractArchivedFilesToBucket', () => {
     } catch (error) {
 
     }
+    fu.deleteFile = jest.fn();
   });
 
   test('using elife-00666-vor-r1.zip', async () => {
@@ -29,7 +30,6 @@ describe('Test extractArchivedFilesToBucket', () => {
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'elife-00666-vor-r1.zip';
-    fu.deleteFile = jest.fn();
 
     await s3Utils.createBucket({Bucket: destinationBucket});
 
@@ -50,7 +50,6 @@ describe('Test extractArchivedFilesToBucket', () => {
 
     process.env.DESTINATION_BUCKET = destinationBucket;
     process.env.ARCHIVE_FILE_NAME = 'biorxiv-685172.meca';
-    fu.deleteFile = jest.fn();
 
     await s3Utils.createBucket({Bucket: destinationBucket});
 
