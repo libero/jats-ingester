@@ -19,10 +19,16 @@ function wrapArticleInLiberoXML(xmlStringBuffer) {
   xmlDoc.root().attr('xml:base', base);
 
   function addJATSPrefix(element) {
-    element.name('jats:' + element.name());
-    element.childNodes().forEach((child) => {
-      addJATSPrefix(child);
-    })
+    const isAJatsElementWithoutAnExplicitNamespace = !element.namespace();
+    if (isAJatsElementWithoutAnExplicitNamespace) {
+      // can't find a way to make element.namespace(ns_object) work
+      //element.namespace(jatsNamespace);
+      element.name('jats:'+element.name());
+
+      element.childNodes().forEach((child) => {
+        addJATSPrefix(child);
+      })
+    }
   }
 
   addJATSPrefix(xmlDoc.root());

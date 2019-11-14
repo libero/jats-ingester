@@ -18,6 +18,9 @@ test('wrap article xml with libero xml using elife zip', () => {
                      '<front>' +
                        '<article-meta>' +
                          '<article-id pub-id-type="publisher-id">00666</article-id>' +
+                         '<permissions>' +
+                           '<ali:free_to_read/>' +
+                         '</permissions>' +
                        '</article-meta>' +
                      '</front>' +
                    '</article>';
@@ -37,6 +40,9 @@ test('wrap article xml with libero xml using elife zip', () => {
                       '<jats:front>' +
                         '<jats:article-meta>' +
                           '<jats:article-id pub-id-type="publisher-id">00666</jats:article-id>' +
+                          '<jats:permissions>' +
+                            '<ali:free_to_read/>' +
+                          '</jats:permissions>' +
                         '</jats:article-meta>' +
                       '</jats:front>' +
                     '</jats:article>' +
