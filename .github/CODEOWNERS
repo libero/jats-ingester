@@ -1,1 +1,3 @@
 * @libero/python-reviewers
+dags/js/ @libero/node-js-reviewers
+tests/js/ @libero/node-js-reviewers
