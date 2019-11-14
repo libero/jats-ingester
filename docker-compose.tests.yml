@@ -65,6 +65,8 @@ services:
       - ./config/airflow.test.cfg:/airflow/airflow.cfg
     # TODO: create script for next line
     command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/"
+    # uncomment and adapt to run a single integration test
+    #command: /bin/bash -c "/wait && sleep 3 && node node_modules/.bin/jest /airflow/tests/js/integration/extract-archived-files-to-bucket.test.js -t elife-00666"
 
   debug-js-unit-tests:
     <<: *js-tests

@@ -4,44 +4,43 @@ const io = require('../IO/file-utils');
 const uuidv4 = require('uuid/v4');
 
 
-function createBucket(s3Params) {
-  let s3 = this.getS3Client();
-  s3.createBucket(s3Params, (error) => {
-    if (error) throw error;
-  });
+async function createBucket(s3Params) {
+  const s3 = this.getS3Client();
+  await s3.createBucket(s3Params).promise();
 }
 
 async function getObject(s3Params) {
-  let s3 = this.getS3Client();
+  const s3 = this.getS3Client();
   console.log('Getting the following from S3: ', s3Params);
-  let response = await s3.getObject(s3Params, (error) => {
-    if (error) {
-      throw error;
-    }
-  }).promise();
+  const response = await s3.getObject(s3Params).promise();
   console.log('Data received from S3: ', response);
   return response;
 }
 
 async function getObjectToFile(s3Params) {
-  let s3 = this.getS3Client();
+  const s3 = this.getS3Client();
 
-  let tempDownloadFileName = '/tmp/' + uuidv4();
+  const tempDownloadFileName = '/tmp/' + uuidv4();
   console.log('Temp download file name =', tempDownloadFileName);
 
   console.log('Getting the following from S3: ', s3Params);
 
   await new Promise((resolve, reject) => {
 
+    const writable = fs.createWriteStream(tempDownloadFileName);
+    writable.on('close', () => {
+      console.log('Writable stream closed');
+      console.log(tempDownloadFileName, 'File size on writable close:', fs.statSync(tempDownloadFileName).size);
+      resolve();
+    });
     s3.getObject(s3Params).createReadStream()
       .on('end', () => {
-        console.log(tempDownloadFileName, 'File size on end:', fs.statSync(tempDownloadFileName).size);
-        resolve();
+        console.log(tempDownloadFileName, 'File size on readable stream end:', fs.statSync(tempDownloadFileName).size);
     }).on('error', async (error) => {
         console.log(tempDownloadFileName, 'File size on error:', fs.statSync(tempDownloadFileName).size);
         await io.deleteFile(tempDownloadFileName);
         reject(error);
-    }).pipe(fs.createWriteStream(tempDownloadFileName))
+    }).pipe(writable);
 
   });
 
@@ -49,7 +48,7 @@ async function getObjectToFile(s3Params) {
 }
 
 function getS3Client() {
-  let s3ConfigParams = {
+  const s3ConfigParams = {
     apiVersion: '2006-03-01',
     maxRetries: 3,
     httpOptions: {
@@ -67,7 +66,7 @@ function getS3Client() {
 }
 
 async function listObjectsV2(s3Params) {
-  let s3 = this.getS3Client();
+  const s3 = this.getS3Client();
 
   return await s3.listObjectsV2(s3Params, (error) => {
     if (error) throw error;
@@ -75,12 +74,10 @@ async function listObjectsV2(s3Params) {
 }
 
 async function upload(s3Params) {
-  let s3 = this.getS3Client();
+  const s3 = this.getS3Client();
 
   console.log('Uploading:', s3Params.Bucket, s3Params.Key);
-  let response = await s3.upload(s3Params, (error) => {
-    if (error) throw error;
-  }).promise();
+  const response = await s3.upload(s3Params).promise();
   console.log(response.Location);
   return response;
 }
